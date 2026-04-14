@@ -1,192 +1,123 @@
-# OPENAI-Ralph-codex
+# Ralph — PRD-driven Codex workflow
 
-![Ralph](ralph.png)
+<p align="center">
+  <img src="ralph.png" alt="Ralph" width="360" />
+</p>
 
-Ralph is a Codex-native autonomous workflow for PRD-driven software delivery.
+Ralph is a Codex-native workflow for shipping software from a PRD instead of vibes. It wraps a small CLI and a Codex plugin around one idea: plan, run one bounded task, verify, capture evidence, recover — then do it again.
 
-It is packaged as an installable CLI + Codex plugin so users can install it
-globally and then use it inside their own projects without cloning this
-repository first.
+## How it works
 
-After installation, Ralph is designed to:
+Ralph doesn't try to be a giant agent framework. It's a state machine on disk.
 
-- bootstrap project-local Ralph state when needed
-- plan tasks from a PRD
-- keep work within a context budget
-- run one bounded Codex task at a time
-- verify automatically
-- capture evidence
-- recover through retry / blocked / resume flows
+When you're inside a Codex session and ask Ralph to do something, it first looks at `.ralph/`. If the project isn't initialized yet, it bootstraps from an existing `PRD.md` (or from your first prompt) and drops you into the loop. From there, every step is explicit and resumable:
 
-## Prerequisites
+- **Plan** turns your PRD into a task graph with dependencies and a context budget per task.
+- **Run** picks the next task that fits the budget and drives Codex through a single, bounded unit of work.
+- **Verify** runs your project's real checks — tests, typecheck, lint — and writes the output under `.ralph/evidence/`.
+- **Resume** knows how to unstick blocked work: retry, replan, or re-queue based on what actually failed.
+- **Status** is the safe question you ask before doing anything else.
 
-- Codex CLI installed and authenticated
-- Node.js 18+
+The plugin surfaces Ralph automatically from prompt intent, so you rarely type commands by hand. Planning prompts route to `plan`, execution prompts to `run`, verification prompts to `verify`, and "continue" / "why is this blocked" prompts to `status` → `resume`.
 
 ## Install
+
+Ralph ships as an npm package that also registers itself as a Codex plugin on your machine.
 
 ```bash
 npm install -g @openai/codex openai-ralph-codex
 ```
 
-Published package:
-
-```text
-https://www.npmjs.com/package/openai-ralph-codex
-```
-
-During global install, `openai-ralph-codex` tries to:
+The postinstall step tries to:
 
 - copy the plugin into `~/plugins/openai-ralph-codex`
-- update `~/.agents/plugins/marketplace.json`
-- merge Ralph-managed entries into `~/.codex/hooks.json`
+- register it in `~/.agents/plugins/marketplace.json`
+- merge Ralph-managed hooks into `~/.codex/hooks.json`
 
-Manual fallback:
+If your environment blocks postinstall, do it manually:
 
 ```bash
 ralph plugin install
 ralph plugin status
 ```
 
-## How to use it
-
-Go to **your own project** and run:
+Then, in any project, just start Codex and prompt normally:
 
 ```bash
 codex
 ```
 
-Then start prompting normally.
+## The loop
 
-If the prompt looks like Ralph-style work - PRD planning, feature work,
-blocked-work recovery, verification, or long-horizon execution - the
-installed plugin hooks auto-surface Ralph and route toward the right
-workflow entrypoint.
+1. **Bootstrap.** First relevant prompt with no `.ralph/` → Ralph runs `init`, seeds `.ralph/prd.md` from `PRD.md` / `docs/PRD.md` / your message, and calls `plan`.
+2. **Plan.** `.ralph/prd.md` → task graph in `.ralph/tasks.json`, scored against the context budget in `.ralph/config.yaml`.
+3. **Run one task.** The scheduler picks the next task that fits the budget, builds a bounded prompt, and hands it to the Codex runner. Tasks that exceed the budget are flagged `split_recommended` instead of silently ballooning.
+4. **Verify.** Configured commands run as subprocesses. Stdout, stderr, exit code, and the command itself are written to `.ralph/evidence/<task-id>/<timestamp>/`.
+5. **Resolve.** Success → mark complete and advance. Failure under `max_retries_per_task` → retry hook. Still failing → `blocked` with the reason persisted in state.
+6. **Resume.** `ralph resume` re-queues blocked or interrupted work once you've dealt with the root cause.
 
-## First prompt bootstrap
+## Commands
 
-If the current project does not have `.ralph/` yet, Ralph can lazily
-bootstrap on the first relevant prompt:
+| Command | What it does |
+|---|---|
+| `ralph init` | Create `.ralph/` from tracked example templates. Idempotent. |
+| `ralph plan` | Parse `.ralph/prd.md` and (re)generate the task graph. |
+| `ralph run` | Execute the next runnable task. `--dry-run` prints the prompt without launching the runner. |
+| `ralph verify` | Run the configured verification commands only. No state changes. |
+| `ralph status` | Print current phase, next action, and any blockers. |
+| `ralph resume` | Re-queue blocked or interrupted work so `run` can continue. |
+| `ralph plugin install` | Install the home-local Codex plugin packaging. |
+| `ralph plugin status` | Show whether the home-local plugin is installed. |
 
-1. `ralph init`
-2. seed `.ralph/prd.md`
-   - from `PRD.md`, `prd.md`, `docs/PRD.md`, or `docs/prd.md` if present
-   - otherwise from the user's first prompt
-3. `ralph plan`
-4. continue through normal Ralph routing
+## What's inside
 
-This supports both:
-
-- starting fresh in a new project
-- adopting Ralph midway through an existing project
-
-## Prompt routing policy
-
-Once `.ralph/` exists, the plugin routes by prompt intent and current state:
-
-- PRD / planning prompts -> `ralph plan`
-- execution prompts -> `ralph run`
-- verification prompts -> `ralph verify`
-- blocked / continue prompts -> `ralph status` then `ralph resume` or `ralph plan`
-
-## Core commands
-
-```bash
-ralph init
-ralph plan
-ralph run
-ralph verify
-ralph resume
-ralph status
-ralph plugin install
-ralph plugin status
+```
+dist/cli.js                                      built Ralph CLI
+plugins/openai-ralph-codex/.codex-plugin/        Codex plugin manifest
+plugins/openai-ralph-codex/hooks.json            prompt-routing hooks
+plugins/openai-ralph-codex/skills/ralph-workflow ralph-workflow skill
+plugins/openai-ralph-codex/scripts/              hook + CLI wrappers
+.ralph/config.yaml                               runner + verify + context budget
+.ralph/prd.md                                    source of truth
+.ralph/tasks.json                                persisted task graph
+.ralph/state.json                                current phase + next action
+.ralph/evidence/                                 per-task verification artifacts
 ```
 
-## Typical loop
+## Philosophy
 
-1. initialize or bootstrap `.ralph/`
-2. generate a task graph from `.ralph/prd.md`
-3. schedule the next task that fits the context budget
-4. run Codex on one task
-5. run verification
-6. write evidence to `.ralph/evidence/`
-7. either complete, retry, block, or resume
+- **One bounded task at a time.** No nested loops, no runaway agents. A task either fits the budget or gets split.
+- **Evidence over claims.** Verification is a subprocess with a real exit code, and its output is persisted under `.ralph/evidence/` before anything is marked complete.
+- **Recoverable by default.** Every phase writes its state to disk. If something crashes, `status` + `resume` gets you back in the loop.
+- **Prompt routing, not prompt wrapping.** The plugin nudges Codex toward the right Ralph entrypoint from your intent; it doesn't hijack your conversation.
+- **Small, readable code.** Plain TypeScript, Zod for schemas, no magic runtime. The whole harness is something you can read in an afternoon.
 
-## Key files
+## What's not implemented
 
-| File | Purpose |
-|------|---------|
-| `dist/cli.js` | built Ralph CLI |
-| `plugins/openai-ralph-codex/.codex-plugin/plugin.json` | Codex plugin manifest |
-| `plugins/openai-ralph-codex/hooks.json` | plugin hook definitions |
-| `plugins/openai-ralph-codex/scripts/ralph-hook.mjs` | hook logic for routing + bootstrap |
-| `plugins/openai-ralph-codex/scripts/ralph-cli.mjs` | plugin wrapper into the Ralph CLI |
-| `.ralph/state.json` | current Ralph phase + next action |
-| `.ralph/tasks.json` | persisted task graph |
-| `.ralph/evidence/` | verification evidence |
+Ralph is honest about its scope:
 
-## What "automatic" means right now
+- No permanent background daemon that silently drives every task forever.
+- No fully automatic nested `ralph run` from inside hooks.
 
-Ralph is more automatic than a plain manual CLI:
-
-- global install can register plugin + hooks
-- Codex can auto-surface Ralph from prompt intent
-- first relevant prompt can bootstrap `.ralph/`
-- the workflow can then handle planning, verification, evidence capture,
-  retry transitions, and resume guidance
-
-What is **not** implemented yet:
-
-- a permanent background daemon that silently manages every task forever
-- fully automatic nested `ralph run` execution directly from hooks
-
-So the current state is:
-
-- globally installable
-- plugin-packaged
-- hook-routed
-- lazy-bootstrap capable
-- still command-driven for actual execution
-
-## Release notes
-
-- [v0.1.1 draft release notes](docs/releases/v0.1.1.md)
+Execution is still command-driven. The plugin + hooks make Ralph feel automatic for most of the loop; the actual `run` step is a command you (or the agent) call.
 
 ## Demo scripts
 
-Quick local demo helpers:
+Quick local demo helpers that exercise the published-package flow end-to-end:
 
 - PowerShell: `scripts/demo-global-install.ps1`
 - Bash: `scripts/demo-global-install.sh`
 
-They demonstrate the published-package flow:
+They check plugin status, simulate a first relevant prompt, and show the generated `.ralph/` state and task graph.
 
-1. confirm plugin status
-2. simulate a first relevant prompt
-3. show the generated `.ralph/` state and task graph
+## Contributing
 
-## Notes for contributors
+See [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
-The `tests/` folder exists for source-repo quality assurance.
-It is not shipped in the published npm package, so end users installing
-`openai-ralph-codex` do not download the test suite.
+- `tests/` runs on vitest and is source-repo only — it isn't shipped in the npm package.
+- Commit messages follow Conventional Commits, in English.
+- Don't commit `.ralph/` runtime state. The `.gitignore` already excludes it; only the `*.example.*` templates are tracked.
 
-## Quick start
+## License
 
-Install once:
-
-```bash
-npm install -g @openai/codex openai-ralph-codex
-```
-
-Then in any project:
-
-```bash
-codex
-```
-
-Example prompts:
-
-- "Create a PRD and plan this feature with Ralph."
-- "Use Ralph to continue the blocked work in this project."
-- "Verify the current Ralph task before we continue."
+MIT — see [LICENSE](LICENSE).
