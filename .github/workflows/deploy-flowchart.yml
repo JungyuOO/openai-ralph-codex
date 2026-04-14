@@ -1,15 +1,18 @@
-name: Deploy Flowchart to GitHub Pages
+name: Deploy Flowchart to Main Docs
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/index.html'
+      - 'docs/flowchart/**'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: pages-branch
+  group: flowchart-main-docs
   cancel-in-progress: false
 
 jobs:
@@ -18,8 +21,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -40,23 +41,36 @@ jobs:
         run: npm run build
         working-directory: workflow
 
-      - name: Publish dist to gh-pages branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
+      - name: Publish flowchart into docs
         run: |
           set -euo pipefail
 
-          DEPLOY_DIR="$(mktemp -d)"
-          cp -R workflow/dist/. "$DEPLOY_DIR/"
-          touch "$DEPLOY_DIR/.nojekyll"
+          rm -rf docs/flowchart
+          mkdir -p docs/flowchart
+          cp -R workflow/dist/. docs/flowchart/
 
-          cd "$DEPLOY_DIR"
-          git init
-          git checkout -b gh-pages
+          cat > docs/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta http-equiv="refresh" content="0; url=./flowchart/" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>OpenAI Ralph Codex Flowchart</title>
+            </head>
+            <body>
+              <p>Redirecting to <a href="./flowchart/">the Ralph flowchart</a>…</p>
+            </body>
+          </html>
+          EOF
+
+          if git diff --quiet -- docs/index.html docs/flowchart; then
+            echo "No docs changes to publish."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add --all
+          git add docs/index.html docs/flowchart
           git commit -m "deploy: update flowchart site"
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
-          git push --force origin gh-pages
+          git push
