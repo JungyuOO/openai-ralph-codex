@@ -29,6 +29,12 @@ After installation, Ralph is designed to:
 npm install -g @openai/codex openai-ralph-codex
 ```
 
+Published package:
+
+```text
+https://www.npmjs.com/package/openai-ralph-codex
+```
+
 During global install, `openai-ralph-codex` tries to:
 
 - copy the plugin into `~/plugins/openai-ralph-codex`
@@ -167,3 +173,23 @@ A fresh isolated no-clone smoke run was verified for:
 - Codex hook registration
 - first relevant prompt bootstrap in a brand-new project directory
 - initial task graph generation
+
+## Quick start
+
+Install once:
+
+```bash
+npm install -g @openai/codex openai-ralph-codex
+```
+
+Then in any project:
+
+```bash
+codex
+```
+
+Example prompts:
+
+- "Create a PRD and plan this feature with Ralph."
+- "Use Ralph to continue the blocked work in this project."
+- "Verify the current Ralph task before we continue."
