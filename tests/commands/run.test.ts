@@ -146,6 +146,43 @@ describe('runRun', () => {
     expect(await fileExists(verifyMarker)).toBe(false);
     expect(process.exitCode).toBe(1);
   });
+
+  test('blocks broad work before launching the runner when it exceeds the context budget', async () => {
+    await seedRunFixture({
+      runnerCode: 0,
+      verificationCommands: [],
+      contextConfig: {
+        max_estimated_load: 0.4,
+        split_if_files_over: 2,
+        split_if_cross_layer: true,
+      },
+      task: {
+        contextFiles: [
+          'src/commands/run.ts',
+          'src/core/verify-runner.ts',
+          'tests/commands/run.test.ts',
+        ],
+        estimatedLoad: 0.62,
+        crossLayer: true,
+        splitRecommended: true,
+      },
+    });
+
+    await runRun({ cwd: tmp });
+
+    const graph = await readGraph();
+    const state = await readState();
+    const progress = await readFile(paths.progress, 'utf8');
+
+    expect(graph.tasks[0].status).toBe('blocked');
+    expect(state.phase).toBe('blocked');
+    expect(state.currentTask).toBe('T001');
+    expect(state.lastStatus).toContain('blocked T001: 3 files exceed limit 2');
+    expect(state.nextAction).toContain('re-run `ralph plan`');
+    expect(progress).toContain('blocked T001 by context budget');
+    await expect(access(path.join(paths.evidenceRoot, 'T001'))).rejects.toThrow();
+    expect(process.exitCode).toBe(1);
+  });
 });
 
 interface RunFixtureInput {
@@ -153,6 +190,17 @@ interface RunFixtureInput {
   verificationCommands: string[];
   maxRetries?: number;
   initialRetryCount?: number;
+  contextConfig?: {
+    max_estimated_load?: number;
+    split_if_files_over?: number;
+    split_if_cross_layer?: boolean;
+  };
+  task?: {
+    contextFiles?: string[];
+    estimatedLoad?: number;
+    crossLayer?: boolean;
+    splitRecommended?: boolean;
+  };
 }
 
 async function seedRunFixture(input: RunFixtureInput): Promise<void> {
@@ -161,6 +209,8 @@ async function seedRunFixture(input: RunFixtureInput): Promise<void> {
     verificationCommands,
     maxRetries = 1,
     initialRetryCount = 0,
+    contextConfig,
+    task,
   } = input;
 
   await writeFile(
@@ -174,6 +224,7 @@ async function seedRunFixture(input: RunFixtureInput): Promise<void> {
       verification: {
         commands: verificationCommands,
       },
+      context: contextConfig,
       recovery: {
         max_retries_per_task: maxRetries,
       },
@@ -196,6 +247,10 @@ async function seedRunFixture(input: RunFixtureInput): Promise<void> {
             dependsOn: [],
             status: 'pending',
             retryCount: initialRetryCount,
+            contextFiles: task?.contextFiles ?? [],
+            estimatedLoad: task?.estimatedLoad ?? 0,
+            crossLayer: task?.crossLayer ?? false,
+            splitRecommended: task?.splitRecommended ?? false,
           },
         ],
       },

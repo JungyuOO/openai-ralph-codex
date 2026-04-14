@@ -11,7 +11,7 @@ import {
 import { ConfigSchema, type Config } from '../schemas/config.js';
 import { TaskGraphSchema, type Task, type TaskGraph } from '../schemas/tasks.js';
 import { loadState, saveState } from '../core/state-manager.js';
-import { pickNextTask } from '../core/scheduler.js';
+import { findContextBlockedTask, pickNextTask } from '../core/scheduler.js';
 import { formatTaskContext } from '../core/task-graph.js';
 import { runCodexCli } from '../runners/codex-cli.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
@@ -44,8 +44,18 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   const graph: TaskGraph = TaskGraphSchema.parse(await readJson<unknown>(p.tasks));
   const baseState = await loadState(p.state);
 
-  const next = pickNextTask(graph);
+  const next = pickNextTask(graph, config.context);
   if (!next) {
+    const blockedByContext = findContextBlockedTask(graph, config.context);
+    if (blockedByContext) {
+      await handleContextBudgetBlock({
+        task: blockedByContext,
+        graph,
+        paths: p,
+        config,
+      });
+      return;
+    }
     console.log('No runnable task. Either all tasks are done or blocked by dependencies.');
     return;
   }
@@ -137,18 +147,28 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   next.status = 'done';
   next.retryCount = 0;
   await writeJson(p.tasks, graph);
-  const following = pickNextTask(graph);
+  const following = pickNextTask(graph, config.context);
+  const contextBlocked = findContextBlockedTask(graph, config.context);
+  const unresolved = graph.tasks.find((task) => task.status !== 'done');
   const afterState = await loadState(p.state);
   await saveState(
     p.state,
     {
-      phase: following ? 'running' : 'completed',
-      currentTask: following?.id ?? null,
-      lastStatus: `completed ${next.id}`,
+      phase: following ? 'running' : unresolved ? 'blocked' : 'completed',
+      currentTask: following?.id ?? unresolved?.id ?? null,
+      lastStatus: contextBlocked
+        ? `completed ${next.id}; blocked ${contextBlocked.id} by context budget`
+        : unresolved
+          ? `completed ${next.id}; unresolved work remains`
+          : `completed ${next.id}`,
       retryCount: 0,
       nextAction: following
         ? `start task ${following.id}: ${following.title}`
-        : 'all tasks done',
+        : contextBlocked
+          ? `split ${contextBlocked.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run \`ralph plan\``
+          : unresolved
+            ? `inspect ${unresolved.id} and resolve the blocked task before re-running \`ralph run\``
+            : 'all tasks done',
     },
     afterState,
   );
@@ -166,6 +186,39 @@ interface FailureInput {
   config: Config;
   reason: string;
   stderr?: string;
+}
+
+async function handleContextBudgetBlock(input: {
+  task: Task;
+  graph: TaskGraph;
+  paths: RalphPaths;
+  config: Config;
+}): Promise<void> {
+  const { task, graph, paths, config } = input;
+  task.status = 'blocked';
+  await writeJson(paths.tasks, graph);
+
+  const afterState = await loadState(paths.state);
+  const reason = contextBudgetReason(task, config);
+  await saveState(
+    paths.state,
+    {
+      phase: 'blocked',
+      currentTask: task.id,
+      lastStatus: `blocked ${task.id}: ${reason}`,
+      retryCount: task.retryCount,
+      nextAction:
+        `split ${task.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, ` +
+        'then re-run `ralph plan`',
+    },
+    afterState,
+  );
+  await appendProgress(
+    paths.progress,
+    `- ${new Date().toISOString()} ??blocked ${task.id} by context budget (${reason})\n`,
+  );
+  console.error(`BLOCKED ${task.id} ??${reason}`);
+  process.exitCode = 1;
 }
 
 async function handleTaskFailure(input: FailureInput): Promise<void> {
@@ -233,6 +286,22 @@ function buildPrompt(task: Task): string {
     'Do not modify files unrelated to this task.',
   ];
   return lines.filter((line) => line !== '').join('\n') + '\n';
+}
+
+function contextBudgetReason(task: Task, config: Config): string {
+  if (
+    config.context.split_if_files_over > 0 &&
+    task.contextFiles.length > config.context.split_if_files_over
+  ) {
+    return `${task.contextFiles.length} files exceed limit ${config.context.split_if_files_over}`;
+  }
+  if (config.context.split_if_cross_layer && task.crossLayer) {
+    return 'cross-layer scope exceeds current policy';
+  }
+  if (task.estimatedLoad > config.context.max_estimated_load) {
+    return `estimated load ${task.estimatedLoad.toFixed(2)} exceeds limit ${config.context.max_estimated_load.toFixed(2)}`;
+  }
+  return 'task exceeds context budget';
 }
 
 function timestampLabel(date: Date = new Date()): string {

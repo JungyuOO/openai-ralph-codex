@@ -32,6 +32,11 @@ Chooses the next runnable task based on:
 - retry history
 - context budget
 
+If multiple tasks are runnable, the scheduler prefers one that fits the
+current context budget. If every runnable task exceeds the configured
+budget, Ralph blocks execution and asks the user to split the task or
+relax the context policy before replanning.
+
 ### 3. Context Budget Manager
 Keeps each execution unit small enough to fit safely inside a useful context window.
 
@@ -50,6 +55,9 @@ Checks whether a task is truly complete through:
 - test commands
 - lint/typecheck/build
 - optional spec and docs checks
+
+Verification also records command output under `.ralph/evidence/` so
+failures can be inspected after the run.
 
 ### 6. Recovery Manager
 Handles:

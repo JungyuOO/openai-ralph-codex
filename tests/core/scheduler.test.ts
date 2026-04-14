@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { pickNextTask } from '../../src/core/scheduler.js';
+import {
+  findContextBlockedTask,
+  isTaskWithinContextBudget,
+  pickNextTask,
+} from '../../src/core/scheduler.js';
+import { ContextConfigSchema } from '../../src/schemas/config.js';
 import { TaskGraphSchema, type TaskGraph } from '../../src/schemas/tasks.js';
 
 function graph(
@@ -7,6 +12,10 @@ function graph(
     id: string;
     status?: 'pending' | 'in_progress' | 'done' | 'blocked' | 'failed';
     dependsOn?: string[];
+    contextFiles?: string[];
+    estimatedLoad?: number;
+    crossLayer?: boolean;
+    splitRecommended?: boolean;
   }>,
 ): TaskGraph {
   return TaskGraphSchema.parse({
@@ -20,6 +29,10 @@ function graph(
       dependsOn: t.dependsOn ?? [],
       status: t.status ?? 'pending',
       retryCount: 0,
+      contextFiles: t.contextFiles ?? [],
+      estimatedLoad: t.estimatedLoad ?? 0,
+      crossLayer: t.crossLayer ?? false,
+      splitRecommended: t.splitRecommended ?? false,
     })),
   });
 }
@@ -60,5 +73,42 @@ describe('pickNextTask', () => {
       { id: 'T002', dependsOn: ['T001'] },
     ]);
     expect(pickNextTask(g)?.id).toBe('T002');
+  });
+
+  test('skips runnable tasks that exceed the current context budget', () => {
+    const g = graph([
+      {
+        id: 'T001',
+        contextFiles: ['src/commands/run.ts', 'src/core/verify-runner.ts'],
+        estimatedLoad: 0.8,
+        crossLayer: true,
+      },
+      { id: 'T002', estimatedLoad: 0.2 },
+    ]);
+    const context = ContextConfigSchema.parse({
+      max_estimated_load: 0.5,
+      split_if_files_over: 4,
+      split_if_cross_layer: true,
+    });
+    expect(pickNextTask(g, context)?.id).toBe('T002');
+  });
+
+  test('surfaces the blocked task when no runnable task fits the context budget', () => {
+    const g = graph([
+      {
+        id: 'T001',
+        contextFiles: ['src/commands/run.ts', 'src/core/verify-runner.ts', 'tests/commands/run.test.ts'],
+        estimatedLoad: 0.62,
+        crossLayer: true,
+      },
+    ]);
+    const context = ContextConfigSchema.parse({
+      max_estimated_load: 0.4,
+      split_if_files_over: 2,
+      split_if_cross_layer: true,
+    });
+    expect(pickNextTask(g, context)).toBeUndefined();
+    expect(findContextBlockedTask(g, context)?.id).toBe('T001');
+    expect(isTaskWithinContextBudget(g.tasks[0], context)).toBe(false);
   });
 });
