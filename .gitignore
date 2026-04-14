@@ -26,10 +26,12 @@ Thumbs.db
 
 # Local agent tool state
 .claude/
-.agents/
 .omx/
 .omc/
 memory/
+/.agents/*
+!/.agents/plugins/
+!/.agents/plugins/**
 
 # Codex local runtime artifacts
 .codex/*

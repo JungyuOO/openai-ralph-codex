@@ -1,0 +1,43 @@
+{
+  "name": "openai-ralph-codex",
+  "version": "0.1.0",
+  "description": "Codex plugin packaging for the Ralph PRD-driven planning, execution, verification, and recovery loop.",
+  "author": {
+    "name": "JungyuOO",
+    "email": "rlawnsrb731@gmail.com",
+    "url": "https://github.com/JungyuOO"
+  },
+  "homepage": "https://github.com/JungyuOO/openai-ralph-codex",
+  "repository": "https://github.com/JungyuOO/openai-ralph-codex",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "ralph",
+    "prd",
+    "workflow",
+    "verification"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenAI Ralph Codex",
+    "shortDescription": "PRD-driven Codex workflow with planning, verification, and recovery.",
+    "longDescription": "Packages the Ralph CLI as a Codex plugin surface so the agent can plan tasks from a PRD, execute the next bounded task, verify output, inspect state, and resume blocked work.",
+    "developerName": "JungyuOO",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/JungyuOO/openai-ralph-codex",
+    "privacyPolicyURL": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
+    "termsOfServiceURL": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+    "defaultPrompt": [
+      "Initialize Ralph for this repo and generate the first task plan.",
+      "Show Ralph status and tell me the safest next command to run.",
+      "Run the next Ralph task and summarize verification evidence."
+    ],
+    "brandColor": "#3B82F6",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg"
+  }
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" role="img" aria-label="OpenAI Ralph Codex logo">
+  <defs>
+    <linearGradient id="logo" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+  </defs>
+  <rect width="720" height="240" rx="36" fill="#0F172A" />
+  <rect x="28" y="28" width="184" height="184" rx="32" fill="url(#logo)" />
+  <path
+    d="M84 173V67h50c28 0 48 19 48 45 0 21-10 34-28 40l30 21h-33l-25-18h-15v18Zm28-43h21c13 0 22-7 22-18 0-12-9-19-22-19h-21Z"
+    fill="#F8FAFC"
+  />
+  <text x="248" y="104" fill="#F8FAFC" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="700">
+    OpenAI Ralph Codex
+  </text>
+  <text x="248" y="152" fill="#CBD5E1" font-family="Inter, Arial, sans-serif" font-size="24">
+    PRD-driven planning, execution, verification, and recovery
+  </text>
+</svg>

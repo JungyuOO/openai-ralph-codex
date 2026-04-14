@@ -1,0 +1,20 @@
+{
+  "name": "openai-ralph-codex-marketplace",
+  "interface": {
+    "displayName": "OpenAI Ralph Codex Plugins"
+  },
+  "plugins": [
+    {
+      "name": "openai-ralph-codex",
+      "source": {
+        "source": "local",
+        "path": "./plugins/openai-ralph-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

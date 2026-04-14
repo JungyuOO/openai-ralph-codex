@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="OpenAI Ralph Codex icon">
+  <defs>
+    <linearGradient id="g" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#g)" />
+  <path
+    d="M34 94V34h31c17 0 29 11 29 28 0 12-6 20-17 24l18 8H79L63 87H50v7Zm16-20h14c8 0 13-4 13-11 0-8-5-12-13-12H50Z"
+    fill="#F8FAFC"
+  />
+</svg>
