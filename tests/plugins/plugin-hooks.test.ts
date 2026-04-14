@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 let hookModule: {
   buildBootstrapPrd: (promptText: string) => string;
-  writeProjectPrd: (projectRoot: string, promptText: string) => Promise<string>;
+  buildClassifierPrompt: (context: Record<string, unknown>) => string;
   buildPostWriteMessage: (state: unknown, task: { id: string } | null) => string;
   buildPromptMessage: (
-    payload: unknown,
+    decision: { stage: string; reason: string },
     state: { phase: string; nextAction?: string },
     task: { id: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
@@ -13,14 +13,32 @@ let hookModule: {
     state: { phase: string; nextAction?: string },
     task: { id: string; title: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
-  classifyPromptIntent: (text: string) => string;
+  classifyHeuristically: (context: {
+    projectRoot: string;
+    promptText: string;
+    state: { phase?: string; nextAction?: string } | null;
+    task: { id: string; status: string; splitRecommended?: boolean } | null;
+    hasState: boolean;
+    hasProjectPrd: boolean;
+  }) => string;
+  determineStage: (
+    context: {
+      projectRoot: string;
+      promptText: string;
+      state: { phase?: string; nextAction?: string } | null;
+      task: { id: string; status: string; splitRecommended?: boolean } | null;
+      hasState: boolean;
+      hasProjectPrd: boolean;
+    },
+    options?: { mode?: 'auto' | 'classifier' | 'heuristic'; allowBootstrap?: boolean },
+  ) => Promise<{ stage: string; reason: string; source: string }>;
+  extractText: (payload: unknown) => string;
+  matchesRalphIntent: (text: string) => boolean;
   recommendCommands: (
     intent: string,
     state: { phase: string; nextAction?: string },
     task: { id: string; status: string; splitRecommended?: boolean } | null,
   ) => string[];
-  extractText: (payload: unknown) => string;
-  matchesRalphIntent: (text: string) => boolean;
   shouldBootstrapProject: (text: string) => boolean;
 };
 
@@ -30,30 +48,101 @@ beforeAll(async () => {
   )) as unknown as typeof hookModule;
 });
 
-describe('ralph plugin hooks', () => {
-  test('detects multilingual planning / execution / verify / resume prompts', () => {
-    expect(hookModule.matchesRalphIntent('Please plan this PRD and resume blocked work')).toBe(true);
-    expect(hookModule.matchesRalphIntent('Just tell me a joke')).toBe(false);
+describe('ralph plugin stage classifier', () => {
+  test('heuristically detects multilingual planning / execution / verify / resume prompts', () => {
+    expect(
+      hookModule.classifyHeuristically({
+        projectRoot: '.',
+        promptText: 'Please plan this PRD and resume blocked work',
+        state: { phase: 'planned' },
+        task: null,
+        hasState: true,
+        hasProjectPrd: false,
+      }),
+    ).toBe('plan');
 
-    expect(hookModule.classifyPromptIntent('Please verify this task before we continue')).toBe('verify');
-    expect(hookModule.classifyPromptIntent('Implement the next task from the PRD')).toBe('plan');
-    expect(hookModule.classifyPromptIntent('Add authentication with password reset to this app')).toBe('plan');
-    expect(hookModule.classifyPromptIntent('Fix src/hooks/bridge.ts:326 null check')).toBe('run');
-    expect(hookModule.classifyPromptIntent('Continue the blocked work in this repo')).toBe('resume');
+    expect(
+      hookModule.classifyHeuristically({
+        projectRoot: '.',
+        promptText: 'Just tell me a joke',
+        state: null,
+        task: null,
+        hasState: false,
+        hasProjectPrd: false,
+      }),
+    ).toBe('ignore');
 
-    expect(hookModule.classifyPromptIntent('이거 먼저 요구사항부터 정리하자')).toBe('plan');
-    expect(hookModule.classifyPromptIntent('지금 막힌 작업 이어서 하자')).toBe('resume');
-    expect(hookModule.classifyPromptIntent('검증부터 하고 진행하자')).toBe('verify');
+    expect(
+      hookModule.classifyHeuristically({
+        projectRoot: '.',
+        promptText: '검증부터 하고 진행하자',
+        state: { phase: 'running' },
+        task: null,
+        hasState: true,
+        hasProjectPrd: false,
+      }),
+    ).toBe('verify');
 
-    expect(hookModule.classifyPromptIntent('この機能の要件を整理してタスクに分解して')).toBe('plan');
-    expect(hookModule.classifyPromptIntent('先に検証してから続けて')).toBe('verify');
+    expect(
+      hookModule.classifyHeuristically({
+        projectRoot: '.',
+        promptText: 'この機能の要件を整理してタスクに分解して',
+        state: { phase: 'planned' },
+        task: null,
+        hasState: true,
+        hasProjectPrd: false,
+      }),
+    ).toBe('plan');
 
-    expect(hookModule.classifyPromptIntent('先把这个需求拆分成任务再做')).toBe('plan');
-    expect(hookModule.classifyPromptIntent('继续卡住的工作并告诉我下一步')).toBe('resume');
+    expect(
+      hookModule.classifyHeuristically({
+        projectRoot: '.',
+        promptText: '继续卡住的工作并告诉我下一步',
+        state: { phase: 'blocked', nextAction: 're-run `ralph plan`' },
+        task: { id: 'T001', status: 'blocked', splitRecommended: true },
+        hasState: true,
+        hasProjectPrd: false,
+      }),
+    ).toBe('resume');
+  });
 
-    expect(hookModule.shouldBootstrapProject('Fix this blocked bug')).toBe(true);
-    expect(hookModule.shouldBootstrapProject('Create a PRD and break this feature down')).toBe(true);
-    expect(hookModule.matchesRalphIntent('그냥 농담 하나 해줘')).toBe(false);
+  test('chooses bootstrap when no Ralph state exists yet', async () => {
+    const decision = await hookModule.determineStage(
+      {
+        projectRoot: '.',
+        promptText: 'Create a PRD and break this feature down',
+        state: null,
+        task: null,
+        hasState: false,
+        hasProjectPrd: false,
+      },
+      { mode: 'heuristic' },
+    );
+    expect(decision.stage).toBe('bootstrap');
+  });
+
+  test('builds classifier prompt and routing message', () => {
+    const classifierPrompt = hookModule.buildClassifierPrompt({
+      projectRoot: '.',
+      promptText: 'Plan this feature before implementing it',
+      state: { phase: 'running', currentTask: 'T003' },
+      task: { id: 'T003', status: 'pending' },
+      hasState: true,
+      hasProjectPrd: false,
+    });
+    expect(classifierPrompt).toContain('Classify the user request');
+    expect(classifierPrompt).toContain('"stage":"ignore|bootstrap|plan|run|verify|resume|status"');
+
+    const message = hookModule.buildPromptMessage(
+      {
+        stage: 'plan',
+        reason: 'prompt looks like planning work',
+      },
+      { phase: 'running' },
+      { id: 'T003', status: 'pending' },
+    );
+    expect(message).toContain('Ralph stage classifier (plan)');
+    expect(message).toContain('ralph plan');
   });
 
   test('extracts prompt text from common payload shapes', () => {
@@ -66,16 +155,6 @@ describe('ralph plugin hooks', () => {
     expect(hookModule.extractText('ralph status')).toBe('ralph status');
   });
 
-  test('builds a routing hint when a current task exists', () => {
-    const message = hookModule.buildPromptMessage(
-      { user_prompt: 'Please plan this PRD and continue Ralph' },
-      { phase: 'running' },
-      { id: 'T003', status: 'pending' },
-    );
-    expect(message).toContain('Ralph auto-routing policy');
-    expect(message).toContain('ralph plan');
-  });
-
   test('builds session start, post-write, and blocked resume hints', () => {
     expect(
       hookModule.buildSessionStartMessage(
@@ -84,7 +163,7 @@ describe('ralph plugin hooks', () => {
       ),
     ).toContain('Recommended next command: ralph status');
 
-    expect(hookModule.buildPostWriteMessage({}, { id: 'T001' })).toContain(
+    expect(hookModule.buildPostWriteMessage({ phase: 'running' }, { id: 'T001' })).toContain(
       'ralph verify',
     );
 
