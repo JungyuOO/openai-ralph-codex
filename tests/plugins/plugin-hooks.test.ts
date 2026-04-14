@@ -14,7 +14,6 @@ let hookModule: {
     task: { id: string; title: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
   classifyPromptIntent: (text: string) => string;
-  findProjectPrdPath: (projectRoot: string) => string | null;
   recommendCommands: (
     intent: string,
     state: { phase: string; nextAction?: string },
@@ -32,32 +31,29 @@ beforeAll(async () => {
 });
 
 describe('ralph plugin hooks', () => {
-  test('detects Ralph-oriented prompts', () => {
-    expect(
-      hookModule.matchesRalphIntent('Please plan this PRD and resume blocked work'),
-    ).toBe(true);
+  test('detects multilingual planning / execution / verify / resume prompts', () => {
+    expect(hookModule.matchesRalphIntent('Please plan this PRD and resume blocked work')).toBe(true);
     expect(hookModule.matchesRalphIntent('Just tell me a joke')).toBe(false);
-    expect(hookModule.classifyPromptIntent('Please verify this Ralph task')).toBe(
-      'verify',
-    );
-    expect(
-      hookModule.classifyPromptIntent('Implement the next Ralph task from the PRD'),
-    ).toBe('plan');
-    expect(
-      hookModule.classifyPromptIntent('Add authentication with password reset to this app'),
-    ).toBe('plan');
-    expect(
-      hookModule.classifyPromptIntent('Fix src/hooks/bridge.ts:326 null check'),
-    ).toBe('run');
-    expect(
-      hookModule.classifyPromptIntent('Continue the blocked work in this repo'),
-    ).toBe('resume');
-    expect(hookModule.shouldBootstrapProject('Fix this blocked Ralph bug')).toBe(
-      true,
-    );
-    expect(
-      hookModule.shouldBootstrapProject('Create a PRD and break this feature down'),
-    ).toBe(true);
+
+    expect(hookModule.classifyPromptIntent('Please verify this task before we continue')).toBe('verify');
+    expect(hookModule.classifyPromptIntent('Implement the next task from the PRD')).toBe('plan');
+    expect(hookModule.classifyPromptIntent('Add authentication with password reset to this app')).toBe('plan');
+    expect(hookModule.classifyPromptIntent('Fix src/hooks/bridge.ts:326 null check')).toBe('run');
+    expect(hookModule.classifyPromptIntent('Continue the blocked work in this repo')).toBe('resume');
+
+    expect(hookModule.classifyPromptIntent('이거 먼저 요구사항부터 정리하자')).toBe('plan');
+    expect(hookModule.classifyPromptIntent('지금 막힌 작업 이어서 하자')).toBe('resume');
+    expect(hookModule.classifyPromptIntent('검증부터 하고 진행하자')).toBe('verify');
+
+    expect(hookModule.classifyPromptIntent('この機能の要件を整理してタスクに分解して')).toBe('plan');
+    expect(hookModule.classifyPromptIntent('先に検証してから続けて')).toBe('verify');
+
+    expect(hookModule.classifyPromptIntent('先把这个需求拆分成任务再做')).toBe('plan');
+    expect(hookModule.classifyPromptIntent('继续卡住的工作并告诉我下一步')).toBe('resume');
+
+    expect(hookModule.shouldBootstrapProject('Fix this blocked bug')).toBe(true);
+    expect(hookModule.shouldBootstrapProject('Create a PRD and break this feature down')).toBe(true);
+    expect(hookModule.matchesRalphIntent('그냥 농담 하나 해줘')).toBe(false);
   });
 
   test('extracts prompt text from common payload shapes', () => {

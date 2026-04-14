@@ -4,8 +4,6 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const packageRoot = path.resolve(process.cwd());
-
 export async function runHook(mode = 'user-prompt') {
   const projectRoot = resolveProjectRoot();
   const payload = await readPayload();
@@ -19,7 +17,7 @@ export async function runHook(mode = 'user-prompt') {
         ? await readCurrentTask(projectRoot, state.currentTask)
         : null;
       return (
-        `Ralph auto-bootstrap completed for this project. ` +
+        'Ralph auto-bootstrap completed for this project. ' +
         `Recommended command path: ${recommendCommands('run', state ?? { phase: 'planned' }, task).join(' -> ')}`
       );
     }
@@ -97,7 +95,12 @@ export async function writeProjectPrd(projectRoot, promptText) {
 }
 
 export function findProjectPrdPath(projectRoot) {
-  for (const relative of ['PRD.md', 'prd.md', path.join('docs', 'PRD.md'), path.join('docs', 'prd.md')]) {
+  for (const relative of [
+    'PRD.md',
+    'prd.md',
+    path.join('docs', 'PRD.md'),
+    path.join('docs', 'prd.md'),
+  ]) {
     const candidate = path.join(projectRoot, relative);
     if (existsSync(candidate)) {
       return candidate;
@@ -191,44 +194,31 @@ export function matchesRalphIntent(text) {
 }
 
 export function classifyPromptIntent(text) {
-  const normalized = text.toLowerCase();
-  if (!normalized.trim()) {
+  const normalized = text.toLowerCase().trim();
+  if (!normalized) {
     return 'ignore';
   }
 
-  const hasWorkSignals =
-    hasAny(normalized, PLAN_SIGNALS) ||
-    hasAny(normalized, VERIFY_SIGNALS) ||
-    hasAny(normalized, RESUME_SIGNALS) ||
-    hasAny(normalized, EXECUTION_SIGNALS) ||
-    hasConcreteAnchor(normalized) ||
-    looksLikeLargeScopedWork(normalized);
+  const scores = {
+    verify: scoreSignals(normalized, VERIFY_SIGNALS),
+    plan:
+      scoreSignals(normalized, PLAN_SIGNALS) +
+      (looksLikeLargeScopedWork(normalized) ? 1 : 0),
+    resume: scoreSignals(normalized, RESUME_SIGNALS),
+    run:
+      scoreSignals(normalized, EXECUTION_SIGNALS) +
+      (hasConcreteAnchor(normalized) ? 1 : 0),
+  };
 
-  if (!hasWorkSignals) {
+  const maxScore = Math.max(...Object.values(scores));
+  if (maxScore === 0) {
     return 'ignore';
   }
 
-  if (hasAny(normalized, VERIFY_SIGNALS)) {
-    return 'verify';
-  }
-
-  if (
-    hasAny(normalized, PLAN_SIGNALS) ||
-    (hasAny(normalized, EXECUTION_SIGNALS) && looksLikeLargeScopedWork(normalized))
-  ) {
-    return 'plan';
-  }
-
-  if (hasAny(normalized, RESUME_SIGNALS)) {
-    return 'resume';
-  }
-
-  if (hasAny(normalized, EXECUTION_SIGNALS) && hasConcreteAnchor(normalized)) {
-    return 'run';
-  }
-
-  if (hasAny(normalized, EXECUTION_SIGNALS)) {
-    return 'run';
+  for (const intent of ['verify', 'plan', 'resume', 'run']) {
+    if (scores[intent] === maxScore) {
+      return intent;
+    }
   }
 
   return 'ignore';
@@ -281,7 +271,7 @@ export function recommendCommands(intent, state, task) {
 
 export function reasonForIntent(intent, state, task) {
   if (intent === 'plan') {
-    return 'prompt mentions PRD / planning concepts';
+    return 'prompt looks like planning, decomposition, or PRD work';
   }
   if (intent === 'verify') {
     return 'prompt asks for validation or checks';
@@ -313,8 +303,11 @@ function normalizePrompt(promptText) {
   return promptText.replace(/\s+/g, ' ').trim() || 'Describe the requested work';
 }
 
-function hasAny(text, keywords) {
-  return keywords.some((keyword) => text.includes(keyword));
+function scoreSignals(text, keywords) {
+  return keywords.reduce(
+    (score, keyword) => score + (text.includes(keyword) ? 1 : 0),
+    0,
+  );
 }
 
 function hasConcreteAnchor(text) {
@@ -328,12 +321,13 @@ function hasConcreteAnchor(text) {
 
 function looksLikeLargeScopedWork(text) {
   return (
-    hasAny(text, LARGE_SCOPE_SIGNALS) ||
+    scoreSignals(text, LARGE_SCOPE_SIGNALS) > 0 ||
     /(build|create|implement|add)\s+(an?\s+)?(app|feature|workflow|dashboard|system|integration)/.test(text)
   );
 }
 
 const PLAN_SIGNALS = [
+  // English
   'ralph',
   'prd',
   'acceptance criteria',
@@ -350,9 +344,45 @@ const PLAN_SIGNALS = [
   'requirements',
   'spec this',
   'spec out',
+  // Korean
+  '요구사항',
+  '명세',
+  '스펙',
+  '계획',
+  '기획',
+  '정리하자',
+  '정리해줘',
+  '정리부터',
+  '나눠줘',
+  '분해해줘',
+  '쪼개줘',
+  '작업으로 나눠',
+  // Japanese
+  '要件',
+  '仕様',
+  '計画',
+  '整理して',
+  '分解して',
+  // Chinese
+  '需求',
+  '規格',
+  '规格',
+  '计划',
+  '計劃',
+  '拆分',
+  '分解',
+  '验收标准',
+  '驗收標準',
+  // Spanish / French
+  'criterios de aceptación',
+  'requisitos',
+  'planifica',
+  'planifier',
+  'exigences',
 ];
 
 const VERIFY_SIGNALS = [
+  // English
   'verify',
   'verification',
   'validate',
@@ -365,9 +395,26 @@ const VERIFY_SIGNALS = [
   'check this',
   'check the current',
   'pass checks',
+  // Korean
+  '검증',
+  '확인해줘',
+  '체크해줘',
+  '검사해줘',
+  // Japanese
+  '先に検証',
+  '検証',
+  '確認して',
+  // Chinese
+  '验证',
+  '驗證',
+  '校验',
+  '校驗',
+  // Romance languages
+  'verifica',
 ];
 
 const RESUME_SIGNALS = [
+  // English
   'resume',
   'continue',
   'pick up',
@@ -378,9 +425,33 @@ const RESUME_SIGNALS = [
   "what's next",
   'what is next',
   'where did we leave off',
+  // Korean
+  '이어서',
+  '이어서 하자',
+  '이어서 해줘',
+  '막힌',
+  '막혀',
+  '멈춘 작업',
+  '계속하자',
+  '계속해줘',
+  '다음 뭐해',
+  // Japanese
+  '続けよう',
+  '続けて',
+  '止まっていた',
+  '再開',
+  // Chinese
+  '继续',
+  '繼續',
+  '接着',
+  '接著',
+  '卡住了',
+  // Spanish
+  'bloqueado',
 ];
 
 const EXECUTION_SIGNALS = [
+  // English
   'implement',
   'build',
   'fix',
@@ -394,6 +465,32 @@ const EXECUTION_SIGNALS = [
   'ship ',
   'work on ',
   'tackle ',
+  // Korean
+  '구현',
+  '만들어',
+  '만들자',
+  '구현해줘',
+  '추가해줘',
+  '업데이트해줘',
+  '고쳐줘',
+  '수정해줘',
+  '진행해',
+  '실행해',
+  // Japanese
+  '作って',
+  '実装',
+  '修正して',
+  '進めて',
+  // Chinese
+  '做这个',
+  '实现',
+  '修复',
+  '修正',
+  '继续做',
+  // Romance languages
+  'implementar',
+  'corrige',
+  'corrigir',
 ];
 
 const LARGE_SCOPE_SIGNALS = [
@@ -408,6 +505,20 @@ const LARGE_SCOPE_SIGNALS = [
   'service',
   'api',
   'system',
+  '기능',
+  '인증',
+  '대시보드',
+  '마이그레이션',
+  '서비스',
+  '시스템',
+  '機能',
+  '認証',
+  'ダッシュボード',
+  '迁移',
+  '遷移',
+  '认证',
+  '認證',
+  'servicio',
 ];
 
 async function readJson(file) {
@@ -428,7 +539,10 @@ async function readJsonPath(projectRoot, name) {
 }
 
 async function runRalphCommand(projectRoot, args) {
-  const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'ralph-cli.mjs');
+  const scriptPath = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    'ralph-cli.mjs',
+  );
   await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [scriptPath, ...args], {
       cwd: projectRoot,
