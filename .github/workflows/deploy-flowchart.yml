@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'docs/index.html'
-      - 'docs/flowchart/**'
+      - 'docs/assets/**'
   workflow_dispatch:
 
 permissions:
@@ -41,36 +41,20 @@ jobs:
         run: npm run build
         working-directory: workflow
 
-      - name: Publish flowchart into docs
+      - name: Publish flowchart into docs root
         run: |
           set -euo pipefail
 
-          rm -rf docs/flowchart
-          mkdir -p docs/flowchart
-          cp -R workflow/dist/. docs/flowchart/
+          rm -rf docs/assets
+          cp -R workflow/dist/. docs/
 
-          cat > docs/index.html <<'EOF'
-          <!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta http-equiv="refresh" content="0; url=./flowchart/" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>OpenAI Ralph Codex Flowchart</title>
-            </head>
-            <body>
-              <p>Redirecting to <a href="./flowchart/">the Ralph flowchart</a>…</p>
-            </body>
-          </html>
-          EOF
-
-          if git diff --quiet -- docs/index.html docs/flowchart; then
+          if git diff --quiet -- docs/index.html docs/assets; then
             echo "No docs changes to publish."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html docs/flowchart
+          git add docs/index.html docs/assets
           git commit -m "deploy: update flowchart site"
           git push
