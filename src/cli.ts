@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { runInit } from './commands/init.js';
 import { runPlan } from './commands/plan.js';
+import { runPluginInstall, runPluginStatus } from './commands/plugin.js';
 import { runResume } from './commands/resume.js';
 import { runRun } from './commands/run.js';
 import { runStatus } from './commands/status.js';
@@ -48,6 +49,24 @@ program
   .description('Re-queue blocked or interrupted work so `ralph run` can continue')
   .action(async () => {
     await runResume();
+  });
+
+const plugin = program
+  .command('plugin')
+  .description('Install or inspect the home-local Codex plugin packaging');
+
+plugin
+  .command('install')
+  .description('Copy the Ralph plugin into the home-local Codex plugin location')
+  .action(async () => {
+    await runPluginInstall();
+  });
+
+plugin
+  .command('status')
+  .description('Show whether the home-local Ralph plugin is installed')
+  .action(async () => {
+    await runPluginStatus();
   });
 
 program

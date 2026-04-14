@@ -48,6 +48,28 @@ npm run build
 That builds the CLI to `dist/cli.js`, which is what the plugin wrapper
 uses.
 
+## Global install path
+
+If you want the package available as a Codex-facing CLI + home-local
+plugin install path, use:
+
+```bash
+npm install -g openai-ralph-codex
+```
+
+The package now runs a postinstall step on global installs that tries to:
+
+- copy the plugin into `~/plugins/openai-ralph-codex`
+- update `~/.agents/plugins/marketplace.json`
+- mark the plugin as `INSTALLED_BY_DEFAULT`
+
+Manual fallback commands:
+
+```bash
+ralph plugin install
+ralph plugin status
+```
+
 ## Plugin package
 
 This repository already includes a repo-local plugin package:
