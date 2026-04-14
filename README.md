@@ -2,78 +2,107 @@
 
 <p align="center">
   <img src="ralph.png" alt="Ralph" width="300" />
+  <br />
+  <em>Use Codex normally, then let Ralph take over when the work needs a real loop.</em>
 </p>
 
-OPENAI-Ralph-codex is a Codex-native autonomous delivery loop for PRD-driven work.
+OPENAI-Ralph-codex is a Codex-native improved Ralph loop for PRD-driven software delivery.
 
-It takes the original Ralph idea - persistent state, repeated bounded work,
-fresh execution, and completion pressure - and improves the structure
-around it so it works better as a Codex plugin product:
+It keeps the original Ralph idea - persistent state, bounded work, fresh
+execution, and completion pressure - but improves the structure around it
+so it behaves like a real Codex product:
 
-- structured project-local state
-- explicit task graph planning
-- context-budgeted task selection
-- verification as a real completion gate
+- structured project-local state under `.ralph/`
+- PRD -> task graph planning
+- context-budgeted execution
+- verification as a hard gate
 - persisted evidence on disk
-- retry / blocked / resume behavior
-- plugin + hook integration so Ralph can surface itself inside normal Codex usage
+- explicit retry / blocked / resume behavior
+- plugin + hook integration so Ralph can surface itself from normal Codex usage
 
-## What this is
+## A simple mental model
 
-Ralph is not meant to replace Codex.
+Think of the product like this:
 
-Codex remains the execution engine.
-Ralph adds a workflow layer for the kinds of tasks that usually break a
-one-shot agent interaction:
+- **Codex** does the actual task execution
+- **Ralph** decides how to turn larger work into a repeatable delivery loop
+- **`.ralph/`** is the project-local memory for that loop
+
+So the goal is not to replace Codex with a second agent.
+The goal is to give Codex a better structure when the work is large enough
+to need planning, verification, and recovery.
+
+## Use Ralph when
+
+Ralph is a good fit when the work is:
+
+- feature-sized or PRD-driven
+- likely to span multiple iterations
+- important enough that verification must be explicit
+- risky enough that blocked / retry / resume should be first-class states
+- better handled as several bounded tasks instead of one giant prompt
+
+## Do not use Ralph when
+
+Plain Codex is usually enough when the work is:
+
+- a quick one-shot answer
+- a tiny local edit with obvious scope
+- pure brainstorming with no need for persistent state
+- a short question that does not need planning or verification
+
+## What Ralph is for
+
+Codex is great at one-shot work.
+
+Ralph is for the work that usually needs more than one burst of context:
 
 - PRD-driven features
-- long-running implementation work
-- tasks that need repeated verification
-- work that may block, retry, or need to resume later
+- larger changes that should be broken into smaller tasks
+- work that must pass real project checks before being called complete
+- tasks that may block, retry, and continue later
 
-In other words:
+So the intended mental model is:
 
-- use plain Codex for lightweight one-shot work
-- let Ralph step in when the task needs a persistent, structured loop
+- **plain Codex** for small one-shot work
+- **Ralph** when the work needs a persistent delivery loop
 
 ## What this improves over a simpler Ralph loop
 
 The original Ralph pattern is strong because it keeps going until the work
 is actually complete.
 
-This version improves that pattern by making the loop more explicit and
-recoverable:
+This version improves the shape of that loop:
 
 ### Structured state
-Instead of relying on a loose progress file alone, Ralph persists:
+Ralph persists explicit state instead of relying on loose progress notes alone:
 
-- `.ralph/state.json` — current phase, current task, next action
-- `.ralph/tasks.json` — task graph with retry state and context metadata
-- `.ralph/progress.md` — append-only progress history
+- `.ralph/state.json` - phase, current task, next action
+- `.ralph/tasks.json` - task graph with retry state and context metadata
+- `.ralph/progress.md` - append-only execution history
 
-### Task graph planning
-Ralph does not just keep a list of vague next steps.
-It turns a PRD into a concrete task graph that can be re-read, re-planned,
-and resumed.
+### PRD-driven task graph
+Ralph does not keep a vague list of "next things to do".
+It turns `.ralph/prd.md` into a runnable task graph that can be re-read,
+replanned, resumed, and verified.
 
-### Context-budgeted execution
-Each task carries context metadata, and execution is intentionally bounded.
+### Context budget
+Each task carries context metadata.
 If a task becomes too broad, Ralph can block it and push the workflow back
 toward replanning instead of silently letting the task balloon.
 
 ### Verification with evidence
-Completion is tied to real verification commands.
-Verification output is written under `.ralph/evidence/` so success and
-failure are backed by artifacts, not just model claims.
+Completion is not a guess.
+Verification commands run as real subprocesses, and their outputs are
+stored under `.ralph/evidence/`.
 
-### Explicit recovery paths
-Retry, blocked, and resume are part of the design.
-Ralph keeps enough state on disk that the loop can recover instead of
-starting from scratch.
+### Explicit recovery
+Retry, blocked, and resume are not accidental edge cases.
+They are part of the normal loop design.
 
 ### Codex-native integration
-This version is packaged as a plugin + CLI so it can surface naturally
-inside Codex instead of living as a separate manual-only script.
+This version is packaged as a plugin + CLI, so Ralph can surface itself
+inside Codex without the user having to manually switch mental models.
 
 ## Install
 
@@ -81,7 +110,7 @@ inside Codex instead of living as a separate manual-only script.
 npm install -g @openai/codex openai-ralph-codex
 ```
 
-Global install is intended to prepare Ralph for normal Codex usage by:
+Global install is designed to prepare Ralph for normal Codex usage by:
 
 - installing the `ralph` CLI
 - copying the plugin into `~/plugins/openai-ralph-codex`
@@ -95,7 +124,7 @@ ralph plugin install
 ralph plugin status
 ```
 
-## How it works in a real project
+## Recommended usage
 
 Go to your own project and run:
 
@@ -103,83 +132,185 @@ Go to your own project and run:
 codex
 ```
 
-Then work normally.
+Then just work normally.
 
-When the prompt looks like Ralph-style work, the installed hooks can route
-into the Ralph workflow instead of leaving the entire task as a plain
-one-shot Codex interaction.
+When the prompt looks like work that benefits from a Ralph loop, the
+installed hooks can route you toward the right entrypoint.
 
-Typical triggers:
+### What the hooks are looking for
 
-- "Create a PRD and plan this feature"
-- "Continue the blocked work"
-- "Verify the current task"
-- "Use Ralph for this long-running change"
+The hooks are not waiting for the exact word `ralph`.
+
+They are trying to detect prompts that look like:
+
+- plan this feature
+- turn this into a PRD or task graph
+- continue blocked work
+- verify before continuing
+- run the next bounded task
+
+So the product is meant to feel like:
+
+- use Codex normally
+- Ralph steps in when the task needs a loop
 
 ## First prompt bootstrap
 
-If the project does not already have `.ralph/`, Ralph can bootstrap it on
-the first relevant prompt.
-
-That bootstrap flow is:
+If the current project does not have `.ralph/`, Ralph can bootstrap it on
+the first relevant prompt:
 
 1. `ralph init`
 2. seed `.ralph/prd.md`
    - from `PRD.md`, `prd.md`, `docs/PRD.md`, or `docs/prd.md` if present
    - otherwise from the user's first prompt
 3. `ralph plan`
-4. move into the normal loop
+4. continue with the normal loop
 
-This lets Ralph work in both cases:
+This means Ralph can be adopted in both situations:
 
-- a brand-new project starting from scratch
-- an existing project that adopts Ralph in the middle of active work
+- a new project starting from scratch
+- an existing project where you want to introduce a stronger delivery loop midway through work
 
-## Main loop
+## How the loop works
 
-Once `.ralph/` exists, the Ralph loop is straightforward:
+### 1. Plan
+Ralph turns `.ralph/prd.md` into `.ralph/tasks.json`.
 
-1. **Plan**
-   - convert `.ralph/prd.md` into a task graph
-   - attach context metadata to tasks
-   - identify tasks that likely need splitting
+Tasks are not just titles:
 
-2. **Select**
-   - choose the next runnable task
-   - enforce the context budget before execution
+- retry count
+- dependency information
+- context files
+- estimated load
+- split recommendations
 
-3. **Run**
-   - execute one bounded task through Codex
-   - avoid turning the whole project into one huge prompt
+all live in the task graph.
 
-4. **Verify**
-   - run configured project checks
-   - stop on failure
-   - persist artifacts under `.ralph/evidence/`
+### 2. Select
+The scheduler picks the next runnable task that still fits the current
+context budget.
 
-5. **Resolve**
-   - mark complete
-   - retry if budget remains
-   - block and persist the reason if it does not
+If the task is too broad, Ralph does not pretend everything is fine - it
+can block the task and push the flow back toward planning.
 
-6. **Resume**
-   - re-queue interrupted or blocked work once the cause has been handled
+### 3. Run
+Ralph executes one bounded task through Codex.
+
+The point is to keep execution small enough to fit a useful context
+window, instead of asking Codex to solve the entire project in a single
+shot.
+
+### 4. Verify
+Configured project checks run after execution.
+
+Ralph records:
+
+- the command
+- stdout
+- stderr
+- exit code
+- duration
+
+under `.ralph/evidence/`.
+
+### 5. Resolve
+From there, the loop branches:
+
+- **success** -> mark complete and move to the next task
+- **retry** -> re-queue if retry budget remains
+- **blocked** -> persist the blocker and wait for resume / replan
+
+### 6. Resume
+If the loop was interrupted or a task was blocked, `ralph resume` can
+re-queue work once the root cause has been addressed.
 
 ## Prompt routing policy
 
 Ralph does not try to hijack every prompt.
 It routes based on intent and current state.
 
-Current high-level routing looks like this:
+Current routing looks like:
 
 - PRD / planning prompts -> `ralph plan`
 - execution prompts -> `ralph run`
 - verification prompts -> `ralph verify`
-- blocked / continue prompts -> `ralph status`, then `ralph resume` or `ralph plan`
+- blocked / continue prompts -> `ralph status` then `ralph resume` or `ralph plan`
 
-So the guiding idea is:
+In short:
 
 > Codex first for simple work, Ralph when the work needs a loop.
+
+## End-to-end examples
+
+### Example 1: brand-new project
+
+User prompt:
+
+```text
+Create a PRD and plan this feature: add authentication with email login and password reset.
+```
+
+Typical Ralph path:
+
+1. no `.ralph/` detected
+2. bootstrap project-local Ralph state
+3. write or derive `.ralph/prd.md`
+4. generate `.ralph/tasks.json`
+5. route toward `ralph run`
+
+### Example 2: existing project in the middle of work
+
+User prompt:
+
+```text
+Continue the blocked work in this project and tell me what should happen next.
+```
+
+Typical Ralph path:
+
+1. existing `.ralph/state.json` is loaded
+2. current blocked reason is read
+3. Ralph routes toward `ralph status`
+4. then either `ralph resume` or `ralph plan`, depending on why the task blocked
+
+### Example 3: verification-heavy change
+
+User prompt:
+
+```text
+Verify the current task before we continue.
+```
+
+Typical Ralph path:
+
+1. current Ralph state is loaded
+2. intent is classified as verification
+3. route toward `ralph verify`
+4. evidence is written under `.ralph/evidence/`
+
+## Example prompts
+
+These are the kinds of prompts that should naturally route into Ralph:
+
+### Planning
+- "Create a PRD and plan this feature."
+- "Break this feature into smaller tasks."
+- "Turn this requirement into an executable task graph."
+
+### Execution
+- "Run the next Ralph task."
+- "Implement the next planned task in this repo."
+- "Continue the current delivery loop."
+
+### Verification
+- "Verify the current Ralph task before we continue."
+- "Run the checks for the current task."
+- "Show me whether the current task really passes."
+
+### Recovery
+- "Continue the blocked work in this project."
+- "Resume the interrupted Ralph task."
+- "Why is this task blocked, and what should happen next?"
 
 ## Commands
 
@@ -205,7 +336,7 @@ So the guiding idea is:
 .ralph/evidence/       per-task verification artifacts
 ```
 
-## Important parts of the package
+## Important package pieces
 
 | Path | Role |
 |---|---|
@@ -217,13 +348,17 @@ So the guiding idea is:
 | `scripts/install-home-plugin.mjs` | home-local plugin installer |
 | `scripts/postinstall-plugin.mjs` | global-install postinstall hook |
 
-## Example prompts
+## Why the on-disk files matter
 
-- "Create a PRD and plan this feature with Ralph."
-- "Use Ralph to continue the blocked work in this project."
-- "Verify the current Ralph task before we continue."
-- "Bootstrap Ralph for this repo and start planning the work."
-- "Run the next Ralph task and tell me what verification says."
+Ralph works because the loop can stop and restart without losing its place.
+
+- `prd.md` preserves what the work is supposed to achieve
+- `tasks.json` preserves how that work was broken down
+- `state.json` preserves what Ralph thinks should happen next
+- `progress.md` preserves the loop history
+- `evidence/` preserves what verification actually proved
+
+That is what makes the loop resumable instead of fragile.
 
 ## Design principles
 
