@@ -16,11 +16,12 @@ export interface RunnerResult {
 
 export async function runCodexCli(opts: RunnerOptions): Promise<RunnerResult> {
   const start = Date.now();
+  const useShell = shouldUseShellForRunner(opts.command);
   return new Promise<RunnerResult>((resolve, reject) => {
-    const child = spawn(opts.command, opts.args, {
+    const child = spawn(useShell ? buildShellCommand(opts.command, opts.args) : opts.command, useShell ? [] : opts.args, {
       cwd: opts.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
+      shell: useShell,
     });
 
     let stdout = '';
@@ -58,4 +59,25 @@ export async function runCodexCli(opts: RunnerOptions): Promise<RunnerResult> {
       child.stdin.end();
     }
   });
+}
+
+export function shouldUseShellForRunner(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform !== 'win32') {
+    return false;
+  }
+  return command.endsWith('.cmd') || command.endsWith('.bat') || !command.includes('.');
+}
+
+export function buildShellCommand(command: string, args: string[]): string {
+  return [command, ...args].map(quoteForWindowsShell).join(' ');
+}
+
+function quoteForWindowsShell(value: string): string {
+  if (/^[A-Za-z0-9_./:\\=-]+$/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/"/g, '\\"')}"`;
 }

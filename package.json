@@ -10,6 +10,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
+    "test:codex-smoke": "node scripts/run-codex-smoke.mjs",
     "test:watch": "vitest",
     "start": "node dist/cli.js"
   },
