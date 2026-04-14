@@ -29,7 +29,7 @@ After installation, Ralph is designed to:
 npm install -g @openai/codex openai-ralph-codex
 ```
 
-During global install, `openai-ralph-codex` now tries to:
+During global install, `openai-ralph-codex` tries to:
 
 - copy the plugin into `~/plugins/openai-ralph-codex`
 - update `~/.agents/plugins/marketplace.json`
@@ -52,14 +52,14 @@ codex
 
 Then start prompting normally.
 
-If the prompt looks like Ralph-style work — PRD planning, feature work,
-blocked-work recovery, verification, or long-horizon execution — the
+If the prompt looks like Ralph-style work - PRD planning, feature work,
+blocked-work recovery, verification, or long-horizon execution - the
 installed plugin hooks auto-surface Ralph and route toward the right
 workflow entrypoint.
 
 ## First prompt bootstrap
 
-If the current project does not have `.ralph/` yet, Ralph can now lazily
+If the current project does not have `.ralph/` yet, Ralph can lazily
 bootstrap on the first relevant prompt:
 
 1. `ralph init`
@@ -78,10 +78,10 @@ This supports both:
 
 Once `.ralph/` exists, the plugin routes by prompt intent and current state:
 
-- PRD / planning prompts → `ralph plan`
-- execution prompts → `ralph run`
-- verification prompts → `ralph verify`
-- blocked / continue prompts → `ralph status` then `ralph resume` or `ralph plan`
+- PRD / planning prompts -> `ralph plan`
+- execution prompts -> `ralph run`
+- verification prompts -> `ralph verify`
+- blocked / continue prompts -> `ralph status` then `ralph resume` or `ralph plan`
 
 ## Core commands
 
@@ -119,9 +119,9 @@ ralph plugin status
 | `.ralph/tasks.json` | persisted task graph |
 | `.ralph/evidence/` | verification evidence |
 
-## What “automatic” means right now
+## What "automatic" means right now
 
-Ralph is now more automatic than a plain manual CLI:
+Ralph is more automatic than a plain manual CLI:
 
 - global install can register plugin + hooks
 - Codex can auto-surface Ralph from prompt intent
