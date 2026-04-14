@@ -112,8 +112,6 @@ They check plugin status, simulate a first relevant prompt, and show the generat
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
-
 - `tests/` runs on vitest and is source-repo only — it isn't shipped in the npm package.
 - Commit messages follow Conventional Commits, in English.
 - Don't commit `.ralph/` runtime state. The `.gitignore` already excludes it; only the `*.example.*` templates are tracked.
