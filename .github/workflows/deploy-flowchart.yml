@@ -1,18 +1,19 @@
-name: Deploy Flowchart to Main Docs
+name: Deploy Flowchart to Main Root
 
 on:
   push:
     branches: [main]
     paths-ignore:
-      - 'docs/index.html'
-      - 'docs/assets/**'
+      - 'index.html'
+      - 'assets/**'
+      - '.nojekyll'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: flowchart-main-docs
+  group: flowchart-main-root
   cancel-in-progress: false
 
 jobs:
@@ -41,20 +42,21 @@ jobs:
         run: npm run build
         working-directory: workflow
 
-      - name: Publish flowchart into docs root
+      - name: Publish flowchart into repository root
         run: |
           set -euo pipefail
 
-          rm -rf docs/assets
-          cp -R workflow/dist/. docs/
+          rm -rf assets
+          cp -R workflow/dist/. .
+          touch .nojekyll
 
-          if git diff --quiet -- docs/index.html docs/assets; then
-            echo "No docs changes to publish."
+          if git diff --quiet -- index.html assets .nojekyll; then
+            echo "No root site changes to publish."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html docs/assets
+          git add index.html assets .nojekyll
           git commit -m "deploy: update flowchart site"
           git push
