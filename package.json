@@ -1,8 +1,26 @@
 {
   "name": "openai-ralph-codex",
   "version": "0.1.0",
-  "description": "Codex-native CLI harness for PRD-driven software delivery",
+  "description": "Installable Codex plugin + CLI for PRD-driven planning, execution, verification, and recovery.",
   "type": "module",
+  "license": "MIT",
+  "author": "JungyuOO",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JungyuOO/openai-ralph-codex.git"
+  },
+  "homepage": "https://github.com/JungyuOO/openai-ralph-codex",
+  "bugs": {
+    "url": "https://github.com/JungyuOO/openai-ralph-codex/issues"
+  },
+  "keywords": [
+    "codex",
+    "plugin",
+    "ralph",
+    "prd",
+    "agent",
+    "verification"
+  ],
   "files": [
     ".ralph",
     "dist",
@@ -11,6 +29,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "ralph": "dist/cli.js"
   },
