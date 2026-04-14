@@ -34,4 +34,16 @@ describe('ConfigSchema', () => {
       ConfigSchema.parse({ runner: { type: 'bogus', command: 'x' } }),
     ).toThrow();
   });
+
+  test('rejects context max_estimated_load above 1', () => {
+    expect(() =>
+      ConfigSchema.parse({ context: { max_estimated_load: 1.5 } }),
+    ).toThrow();
+  });
+
+  test('rejects negative split_if_files_over', () => {
+    expect(() =>
+      ConfigSchema.parse({ context: { split_if_files_over: -1 } }),
+    ).toThrow();
+  });
 });

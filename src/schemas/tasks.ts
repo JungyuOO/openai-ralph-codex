@@ -16,6 +16,10 @@ export const TaskSchema = z.object({
   dependsOn: z.array(z.string()).default([]),
   status: TaskStatusSchema.default('pending'),
   retryCount: z.number().int().nonnegative().default(0),
+  contextFiles: z.array(z.string()).default([]),
+  estimatedLoad: z.number().min(0).max(1).default(0),
+  crossLayer: z.boolean().default(false),
+  splitRecommended: z.boolean().default(false),
 });
 
 export type Task = z.infer<typeof TaskSchema>;

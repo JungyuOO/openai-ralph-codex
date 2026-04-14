@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -22,10 +22,12 @@ beforeEach(async () => {
     scriptPath,
     [
       "import { writeFileSync } from 'node:fs';",
-      "const [exitCode = '0', markerPath = '', markerText = ''] = process.argv.slice(2);",
+      "const [exitCode = '0', markerPath = '', markerText = '', stdoutText = '', stderrText = ''] = process.argv.slice(2);",
       "if (markerPath && markerPath !== '-') {",
       "  writeFileSync(markerPath, markerText || exitCode, 'utf8');",
       '}',
+      "if (stdoutText && stdoutText !== '-') process.stdout.write(stdoutText);",
+      "if (stderrText && stderrText !== '-') process.stderr.write(stderrText);",
       'process.exit(Number(exitCode));',
       '',
     ].join('\n'),
@@ -47,9 +49,21 @@ afterEach(async () => {
 describe('runRun', () => {
   test('marks a task done only after runner and verification both succeed', async () => {
     const verifyMarker = path.join(tmp, 'verify-ok.txt');
+    const verifyStdout = 'verify ok';
+    const verifyStderr = 'verify warning';
     await seedRunFixture({
       runnerCode: 0,
-      verificationCommands: [shellCommand(process.execPath, scriptPath, '0', verifyMarker)],
+      verificationCommands: [
+        shellCommand(
+          process.execPath,
+          scriptPath,
+          '0',
+          verifyMarker,
+          '-',
+          verifyStdout,
+          verifyStderr,
+        ),
+      ],
     });
 
     await runRun({ cwd: tmp });
@@ -66,6 +80,9 @@ describe('runRun', () => {
     expect(state.nextAction).toBe('all tasks done');
     expect(progress).toContain('completed T001');
     expect(await fileExists(verifyMarker)).toBe(true);
+    const evidence = await readEvidenceFiles('T001');
+    expect(evidence['command-01/stdout.txt']).toBe(verifyStdout);
+    expect(evidence['command-01/stderr.txt']).toBe(verifyStderr);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -97,6 +114,9 @@ describe('runRun', () => {
     expect(progress).toContain('retry queued for T001');
     expect(await fileExists(failedMarker)).toBe(true);
     expect(await fileExists(skippedMarker)).toBe(false);
+    const evidence = await readEvidenceFiles('T001');
+    expect(evidence['command-01/result.json']).toContain('"exitCode": 1');
+    expect(evidence['command-02/result.json']).toBeUndefined();
     expect(process.exitCode).toBe(1);
   });
 
@@ -225,4 +245,24 @@ async function fileExists(file: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readEvidenceFiles(taskId: string): Promise<Record<string, string>> {
+  const taskRoot = path.join(paths.evidenceRoot, taskId);
+  const sessions = await readdir(taskRoot);
+  expect(sessions).toHaveLength(1);
+  const sessionRoot = path.join(taskRoot, sessions[0]);
+  const files: Record<string, string> = {};
+
+  for (const commandDir of await readdir(sessionRoot)) {
+    const commandRoot = path.join(sessionRoot, commandDir);
+    for (const name of await readdir(commandRoot)) {
+      files[`${commandDir}/${name}`] = await readFile(
+        path.join(commandRoot, name),
+        'utf8',
+      );
+    }
+  }
+
+  return files;
 }

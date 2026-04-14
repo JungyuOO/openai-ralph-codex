@@ -13,6 +13,10 @@ export function extractTasksFromPrd(prd: string): Task[] {
     dependsOn: [],
     status: 'pending' as const,
     retryCount: 0,
+    contextFiles: [],
+    estimatedLoad: 0,
+    crossLayer: false,
+    splitRecommended: false,
   }));
 }
 

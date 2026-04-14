@@ -12,6 +12,7 @@ import { ConfigSchema, type Config } from '../schemas/config.js';
 import { TaskGraphSchema, type Task, type TaskGraph } from '../schemas/tasks.js';
 import { loadState, saveState } from '../core/state-manager.js';
 import { pickNextTask } from '../core/scheduler.js';
+import { formatTaskContext } from '../core/task-graph.js';
 import { runCodexCli } from '../runners/codex-cli.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
 
@@ -63,6 +64,11 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   );
 
   console.log(`Running task ${next.id}: ${next.title}`);
+  if (next.splitRecommended) {
+    console.log(
+      `Context hint: ${next.id} looks broad (load ${next.estimatedLoad.toFixed(2)}). Consider splitting if the edit expands.`,
+    );
+  }
 
   const prompt = buildPrompt(next);
 
@@ -102,13 +108,16 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   }
 
   if (config.verification.commands.length > 0) {
+    const evidenceDir = path.join(p.evidenceRoot, next.id, timestampLabel());
     console.log(
       `Running ${config.verification.commands.length} verification command(s)...`,
     );
     const verifyResult = await runVerificationCommands(
       config.verification.commands,
       cwd,
+      { evidenceDir },
     );
+    console.log(`Evidence saved to: ${path.relative(cwd, evidenceDir)}`);
     if (!verifyResult.ok) {
       const failed = verifyResult.results.find((r) => r.exitCode !== 0);
       const reason = failed
@@ -145,7 +154,7 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   );
   await appendProgress(
     p.progress,
-    `- ${new Date().toISOString()} — completed ${next.id} (${runnerResult.durationMs}ms)\n`,
+    `- ${new Date().toISOString()} ??completed ${next.id} (${runnerResult.durationMs}ms)\n`,
   );
   console.log(`OK ${next.id} completed in ${runnerResult.durationMs}ms`);
 }
@@ -165,11 +174,7 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
   const max = config.recovery.max_retries_per_task;
   const canRetry = task.retryCount <= max;
 
-  if (canRetry) {
-    task.status = 'pending';
-  } else {
-    task.status = 'failed';
-  }
+  task.status = canRetry ? 'pending' : 'failed';
   await writeJson(paths.tasks, graph);
 
   const afterState = await loadState(paths.state);
@@ -179,7 +184,7 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
       {
         phase: 'running',
         currentTask: task.id,
-        lastStatus: `retry ${task.retryCount}/${max} — ${reason}`,
+        lastStatus: `retry ${task.retryCount}/${max} ??${reason}`,
         retryCount: task.retryCount,
         nextAction: `re-run \`ralph run\` to retry ${task.id}`,
       },
@@ -187,11 +192,9 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
     );
     await appendProgress(
       paths.progress,
-      `- ${new Date().toISOString()} — retry queued for ${task.id} (${reason})\n`,
+      `- ${new Date().toISOString()} ??retry queued for ${task.id} (${reason})\n`,
     );
-    console.error(
-      `RETRY ${task.id} (${task.retryCount}/${max}) — ${reason}`,
-    );
+    console.error(`RETRY ${task.id} (${task.retryCount}/${max}) ??${reason}`);
   } else {
     await saveState(
       paths.state,
@@ -206,11 +209,9 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
     );
     await appendProgress(
       paths.progress,
-      `- ${new Date().toISOString()} — failed ${task.id} after ${task.retryCount} attempt(s) (${reason})\n`,
+      `- ${new Date().toISOString()} ??failed ${task.id} after ${task.retryCount} attempt(s) (${reason})\n`,
     );
-    console.error(
-      `FAIL ${task.id} after ${task.retryCount} attempt(s) — ${reason}`,
-    );
+    console.error(`FAIL ${task.id} after ${task.retryCount} attempt(s) ??${reason}`);
   }
 
   if (stderr && stderr.trim()) {
@@ -223,14 +224,19 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
 
 function buildPrompt(task: Task): string {
   const lines = [
-    `Task: ${task.id} — ${task.title}`,
+    `Task: ${task.id} ??${task.title}`,
     task.description ? `Description: ${task.description}` : '',
+    ...formatTaskContext(task),
     '',
     'Implement this task in the current repository.',
     'Keep changes minimal and surgical.',
     'Do not modify files unrelated to this task.',
   ];
-  return lines.filter((l) => l !== '').join('\n') + '\n';
+  return lines.filter((line) => line !== '').join('\n') + '\n';
+}
+
+function timestampLabel(date: Date = new Date()): string {
+  return date.toISOString().replace(/[:.]/g, '-');
 }
 
 async function appendProgress(file: string, entry: string): Promise<void> {

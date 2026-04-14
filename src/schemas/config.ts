@@ -20,11 +20,13 @@ export const ProjectConfigSchema = z
 
 export const ContextConfigSchema = z
   .object({
-    max_estimated_load: z.number().default(0.65),
-    split_if_files_over: z.number().int().default(8),
+    max_estimated_load: z.number().min(0).max(1).default(0.65),
+    split_if_files_over: z.number().int().nonnegative().default(8),
     split_if_cross_layer: z.boolean().default(true),
   })
   .default({});
+
+export type ContextConfig = z.infer<typeof ContextConfigSchema>;
 
 export const VerificationConfigSchema = z
   .object({

@@ -30,18 +30,24 @@ export async function runVerify(options: VerifyOptions = {}): Promise<void> {
     return;
   }
 
+  const evidenceDir = path.join(p.evidenceRoot, 'manual-verify', timestampLabel());
   console.log(`Running ${commands.length} verification command(s)...`);
-  const result = await runVerificationCommands(commands, cwd);
+  const result = await runVerificationCommands(commands, cwd, { evidenceDir });
 
   console.log('');
   console.log('Verification summary:');
-  for (const r of result.results) {
-    const mark = r.exitCode === 0 ? 'OK  ' : 'FAIL';
-    console.log(`  ${mark} ${r.command} (${r.durationMs}ms, exit ${r.exitCode})`);
+  for (const item of result.results) {
+    const mark = item.exitCode === 0 ? 'OK  ' : 'FAIL';
+    console.log(`  ${mark} ${item.command} (${item.durationMs}ms, exit ${item.exitCode})`);
   }
+  console.log(`Evidence saved to: ${path.relative(cwd, evidenceDir)}`);
 
   if (!result.ok) {
     console.error('Verification failed.');
     process.exitCode = 1;
   }
+}
+
+function timestampLabel(date: Date = new Date()): string {
+  return date.toISOString().replace(/[:.]/g, '-');
 }

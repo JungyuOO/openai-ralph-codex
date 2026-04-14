@@ -69,4 +69,43 @@ describe('runPlan', () => {
     );
     expect(progress).toContain('plan generated (3 task(s))');
   });
+
+  test('stores context budget metadata for broad tasks', async () => {
+    await writeFile(
+      path.join(tmp, '.ralph', 'config.yaml'),
+      [
+        'version: 1',
+        'context:',
+        '  max_estimated_load: 0.4',
+        '  split_if_files_over: 2',
+        '  split_if_cross_layer: true',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(tmp, '.ralph', 'prd.md'),
+      [
+        '# PRD',
+        '',
+        '## Acceptance Criteria',
+        '- Update `src/commands/run.ts`, `src/core/verify-runner.ts`, and `tests/commands/run.test.ts`',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    await runPlan({ cwd: tmp });
+
+    const graph = TaskGraphSchema.parse(
+      JSON.parse(await readFile(path.join(tmp, '.ralph', 'tasks.json'), 'utf8')),
+    );
+    expect(graph.tasks[0].contextFiles).toEqual([
+      'src/commands/run.ts',
+      'src/core/verify-runner.ts',
+      'tests/commands/run.test.ts',
+    ]);
+    expect(graph.tasks[0].splitRecommended).toBe(true);
+    expect(graph.tasks[0].estimatedLoad).toBeGreaterThan(0.4);
+  });
 });

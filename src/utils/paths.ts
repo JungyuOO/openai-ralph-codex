@@ -11,6 +11,7 @@ export interface RalphPaths {
   state: string;
   tasks: string;
   progress: string;
+  evidenceRoot: string;
 }
 
 export function ralphDir(cwd: string = process.cwd()): string {
@@ -30,5 +31,6 @@ export function ralphPaths(cwd: string = process.cwd()): RalphPaths {
     state: path.join(dir, 'state.json'),
     tasks: path.join(dir, 'tasks.json'),
     progress: path.join(dir, 'progress.md'),
+    evidenceRoot: path.join(dir, 'evidence'),
   };
 }

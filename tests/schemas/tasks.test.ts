@@ -8,6 +8,10 @@ describe('TaskSchema', () => {
     expect(parsed.retryCount).toBe(0);
     expect(parsed.dependsOn).toEqual([]);
     expect(parsed.description).toBe('');
+    expect(parsed.contextFiles).toEqual([]);
+    expect(parsed.estimatedLoad).toBe(0);
+    expect(parsed.crossLayer).toBe(false);
+    expect(parsed.splitRecommended).toBe(false);
   });
 
   test('rejects unknown status', () => {
@@ -33,6 +37,7 @@ describe('TaskGraphSchema', () => {
     });
     expect(graph.tasks[0].status).toBe('pending');
     expect(graph.tasks[0].retryCount).toBe(0);
+    expect(graph.tasks[0].contextFiles).toEqual([]);
   });
 
   test('requires version 1', () => {
