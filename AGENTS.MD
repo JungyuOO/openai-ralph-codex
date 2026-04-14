@@ -14,7 +14,7 @@ The goal is to help Codex complete long-horizon projects more reliably through:
 
 ## Rules
 - Keep commands and public CLI UX in English.
-- Keep git commit messages in English and follow the Lore commit protocol.
+- Keep git commit messages in English, start them with a Conventional Commit prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:` etc.), and follow the Lore commit protocol.
 - Prefer small, composable modules over large files.
 - Command handlers in `src/commands/` should stay thin.
 - Core logic belongs in `src/core/`.

@@ -71,7 +71,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   - Check `git status --short`.
   - Update `.gitignore` if new local/runtime/generated artifacts appeared.
 - Commit messages must stay in **English** and follow the project's **Lore commit protocol** from `AGENTS.md`:
-  - intent line first (`why`, not `what`)
+  - start the intent line with a **Conventional Commit** prefix such as `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, or `chore:`
+  - keep the first line focused on intent (`why`, not only `what`)
   - short body with context/approach
   - useful trailers such as `Confidence`, `Scope-risk`, `Tested`, and `Not-tested`
 - Default completion sequence for a finished task:
