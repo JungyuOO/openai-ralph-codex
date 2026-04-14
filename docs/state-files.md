@@ -14,26 +14,31 @@ These files are committed so `ralph init` can copy them into working files:
 
 These files are created or updated during normal CLI usage and should stay local:
 
-- `.ralph/config.yaml` — active project config
-- `.ralph/prd.md` — active PRD
-- `.ralph/context-map.md` — local repo knowledge map
-- `.ralph/state.json` — current phase, task pointer, retry count, next action
-- `.ralph/tasks.json` — persisted task graph with retry state and context estimates
-- `.ralph/progress.md` — append-only progress log
+- `.ralph/config.yaml` - active project config
+- `.ralph/prd.md` - active PRD
+- `.ralph/context-map.md` - local repo knowledge map
+- `.ralph/state.json` - current phase, task pointer, retry count, and next action
+- `.ralph/tasks.json` - persisted task graph with retry state and context estimates
+- `.ralph/progress.md` - append-only progress log
 
 ## Evidence artifacts
 
 Verification output is written under `.ralph/evidence/`:
 
-- `.ralph/evidence/<task-id>/<timestamp>/...` — verification artifacts created by `ralph run`
-- `.ralph/evidence/manual-verify/<timestamp>/...` — artifacts created by standalone `ralph verify`
+- `.ralph/evidence/<task-id>/<timestamp>/...` - artifacts created by `ralph run`
+- `.ralph/evidence/manual-verify/<timestamp>/...` - artifacts created by standalone `ralph verify`
 
 Each verification command gets its own subdirectory containing:
 
-- `command.txt` — exact shell command
-- `stdout.txt` — captured stdout
-- `stderr.txt` — captured stderr
-- `result.json` — exit code and duration
+- `command.txt` - exact shell command
+- `stdout.txt` - captured stdout
+- `stderr.txt` - captured stderr
+- `result.json` - exit code and duration
+
+## Related verification commands
+
+- `npm test` - normal offline-safe regression suite
+- `npm run test:codex-smoke` - opt-in live Codex runner smoke test
 
 ## Git hygiene
 

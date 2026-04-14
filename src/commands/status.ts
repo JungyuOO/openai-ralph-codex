@@ -2,6 +2,7 @@ import path from 'node:path';
 import { ralphPaths } from '../utils/paths.js';
 import { exists, readJson } from '../utils/fs.js';
 import { StateSchema } from '../schemas/state.js';
+import { TaskGraphSchema } from '../schemas/tasks.js';
 
 export interface StatusOptions {
   cwd?: string;
@@ -28,12 +29,49 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     return;
   }
 
-  const s = parsed.data;
+  const state = parsed.data;
+  const currentTask = await loadCurrentTask(p.tasks, state.currentTask);
+
   console.log('Ralph status');
-  console.log(`  phase:         ${s.phase}`);
-  console.log(`  current task:  ${s.currentTask ?? '(none)'}`);
-  console.log(`  last status:   ${s.lastStatus}`);
-  console.log(`  retry count:   ${s.retryCount}`);
-  console.log(`  next action:   ${s.nextAction}`);
-  console.log(`  updated at:    ${s.updatedAt}`);
+  console.log(`  phase:         ${state.phase}`);
+  console.log(`  current task:  ${state.currentTask ?? '(none)'}`);
+  console.log(`  last status:   ${state.lastStatus}`);
+  console.log(`  retry count:   ${state.retryCount}`);
+  console.log(`  next action:   ${state.nextAction}`);
+  console.log(`  updated at:    ${state.updatedAt}`);
+
+  if (currentTask) {
+    console.log('');
+    console.log('Current task details');
+    console.log(`  title:         ${currentTask.title}`);
+    console.log(`  status:        ${currentTask.status}`);
+    console.log(`  load:          ${currentTask.estimatedLoad.toFixed(2)}`);
+    console.log(`  files:         ${currentTask.contextFiles.length}`);
+    if (currentTask.contextFiles.length > 0) {
+      console.log(`  context:       ${currentTask.contextFiles.join(', ')}`);
+    }
+    if (currentTask.splitRecommended) {
+      console.log('  recommendation: split this task before continuing');
+    }
+  }
+
+  if (state.phase === 'blocked' && /context budget|split .*config/i.test(state.nextAction)) {
+    console.log('');
+    console.log('Hint');
+    console.log('  The current task is blocked by the context budget.');
+    console.log('  Split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then run `ralph plan` again.');
+  }
+}
+
+async function loadCurrentTask(tasksPath: string, taskId: string | null) {
+  if (!taskId || !(await exists(tasksPath))) {
+    return null;
+  }
+
+  const parsed = TaskGraphSchema.safeParse(await readJson<unknown>(tasksPath));
+  if (!parsed.success) {
+    return null;
+  }
+
+  return parsed.data.tasks.find((task) => task.id === taskId) ?? null;
 }

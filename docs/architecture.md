@@ -50,6 +50,10 @@ Executes work through:
 - Codex CLI
 - optional Codex SDK adapter later
 
+For local verification, the repository includes:
+- normal mocked/integration coverage in `npm test`
+- an opt-in live smoke path in `npm run test:codex-smoke`
+
 ### 5. Verifier
 Checks whether a task is truly complete through:
 - test commands
@@ -58,6 +62,9 @@ Checks whether a task is truly complete through:
 
 Verification also records command output under `.ralph/evidence/` so
 failures can be inspected after the run.
+
+The standalone `ralph verify` command uses the same evidence layout as
+the run pipeline.
 
 ### 6. Recovery Manager
 Handles:
