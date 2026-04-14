@@ -74,4 +74,19 @@ describe('runInit', () => {
       await readFile(path.join(tmp, '.ralph', 'config.yaml'), 'utf8'),
     ).toBe(customConfig);
   });
+
+  test('falls back to bundled example templates when project examples are missing', async () => {
+    await rm(path.join(tmp, '.ralph', 'config.example.yaml'), { force: true });
+    await rm(path.join(tmp, '.ralph', 'prd.example.md'), { force: true });
+    await rm(path.join(tmp, '.ralph', 'context-map.example.md'), { force: true });
+
+    await runInit({ cwd: tmp });
+
+    expect(
+      await readFile(path.join(tmp, '.ralph', 'config.example.yaml'), 'utf8'),
+    ).toContain('version: 1');
+    expect(
+      await readFile(path.join(tmp, '.ralph', 'prd.md'), 'utf8'),
+    ).toContain('Product Requirements Document');
+  });
 });

@@ -4,6 +4,7 @@
   "description": "Codex-native CLI harness for PRD-driven software delivery",
   "type": "module",
   "files": [
+    ".ralph",
     "dist",
     "plugins",
     "scripts",

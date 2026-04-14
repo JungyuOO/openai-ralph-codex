@@ -6,7 +6,7 @@ export function maybeBootstrapProject(
   projectRoot: string,
   promptText: string,
 ): Promise<boolean>;
-export function writeBootstrapPrd(
+export function writeProjectPrd(
   projectRoot: string,
   promptText: string,
 ): Promise<string>;

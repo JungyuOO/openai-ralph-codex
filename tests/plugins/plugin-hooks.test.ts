@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 let hookModule: {
   buildBootstrapPrd: (promptText: string) => string;
+  writeProjectPrd: (projectRoot: string, promptText: string) => Promise<string>;
   buildPostWriteMessage: (state: unknown, task: { id: string } | null) => string;
   buildPromptMessage: (
     payload: unknown,

@@ -1,8 +1,8 @@
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const packageRoot = path.resolve(process.cwd());
 
@@ -78,13 +78,12 @@ export async function maybeBootstrapProject(projectRoot, promptText) {
   }
 
   await runRalphCommand(projectRoot, ['init']);
-  await writeBootstrapPrd(projectRoot, promptText);
+  await writeProjectPrd(projectRoot, promptText);
   await runRalphCommand(projectRoot, ['plan']);
   return true;
 }
 
-export async function writeBootstrapPrd(projectRoot, promptText) {
-  await mkdir(path.join(projectRoot, '.ralph'), { recursive: true });
+export async function writeProjectPrd(projectRoot, promptText) {
   const existingPrd = findProjectPrdPath(projectRoot);
   const target = path.join(projectRoot, '.ralph', 'prd.md');
 

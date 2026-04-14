@@ -32,6 +32,7 @@ memory/
 /.agents/*
 !/.agents/plugins/
 !/.agents/plugins/**
+.tmp-global-smoke/
 
 # Codex local runtime artifacts
 .codex/*

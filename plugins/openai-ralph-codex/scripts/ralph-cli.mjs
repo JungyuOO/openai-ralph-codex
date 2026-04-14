@@ -12,17 +12,26 @@ const projectRoot = process.env.RALPH_PROJECT_ROOT || process.cwd();
 
 const command =
   process.env.RALPH_CLI_BIN ||
-  (existsSync(repoCliPath) ? process.execPath : 'ralph');
+  (existsSync(repoCliPath)
+    ? process.execPath
+    : process.platform === 'win32'
+      ? 'ralph.cmd'
+      : 'ralph');
 const args =
   command === process.execPath
     ? [repoCliPath, ...process.argv.slice(2)]
     : process.argv.slice(2);
 
-const child = spawn(command, args, {
-  cwd: projectRoot,
-  stdio: 'inherit',
-  shell: false,
-});
+const useShell = process.platform === 'win32' && command.endsWith('.cmd');
+const child = spawn(
+  useShell ? buildShellCommand(command, args) : command,
+  useShell ? [] : args,
+  {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    shell: useShell,
+  },
+);
 
 child.on('exit', (code) => {
   process.exit(code ?? 1);
@@ -37,3 +46,14 @@ child.on('error', (error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
+
+function buildShellCommand(cmd, parts) {
+  return [cmd, ...parts].map(quoteForShell).join(' ');
+}
+
+function quoteForShell(value) {
+  if (/^[A-Za-z0-9_./:\\=-]+$/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/"/g, '\\"')}"`;
+}

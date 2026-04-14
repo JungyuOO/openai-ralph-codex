@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ralphPaths } from '../utils/paths.js';
 import {
   copyIfMissing,
@@ -17,26 +18,40 @@ export interface InitOptions {
 export async function runInit(options: InitOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const p = ralphPaths(cwd);
+  const bundled = bundledTemplatePaths();
 
   await ensureDir(p.root);
 
   const created: string[] = [];
   const skipped: string[] = [];
 
-  const templates: Array<[string, string]> = [
-    [p.configExample, p.config],
-    [p.prdExample, p.prd],
-    [p.contextMapExample, p.contextMap],
+  const templates: Array<[string, string, string]> = [
+    [p.configExample, p.config, bundled.configExample],
+    [p.prdExample, p.prd, bundled.prdExample],
+    [p.contextMapExample, p.contextMap, bundled.contextMapExample],
   ];
 
-  for (const [src, dest] of templates) {
-    if (!(await exists(src))) {
+  for (const [projectExample, dest, fallbackExample] of templates) {
+    let source = projectExample;
+    if (!(await exists(projectExample))) {
+      if (!(await exists(fallbackExample))) {
+        throw new Error(
+          `Missing template: ${path.relative(cwd, projectExample)}. ` +
+            'Ensure tracked example files are present in .ralph/ or bundled with the package.',
+        );
+      }
+      await copyIfMissing(fallbackExample, projectExample);
+      created.push(path.relative(cwd, projectExample));
+      source = projectExample;
+    }
+
+    if (!(await exists(source))) {
       throw new Error(
-        `Missing template: ${path.relative(cwd, src)}. ` +
+        `Missing template: ${path.relative(cwd, source)}. ` +
           'Ensure tracked example files are present in .ralph/.',
       );
     }
-    const didCopy = await copyIfMissing(src, dest);
+    const didCopy = await copyIfMissing(source, dest);
     (didCopy ? created : skipped).push(path.relative(cwd, dest));
   }
 
@@ -75,4 +90,16 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
   }
   console.log('');
   console.log('Next: run `ralph plan` to generate the initial task graph.');
+}
+
+function bundledTemplatePaths() {
+  const packageRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../',
+  );
+  return {
+    configExample: path.join(packageRoot, '.ralph', 'config.example.yaml'),
+    prdExample: path.join(packageRoot, '.ralph', 'prd.example.md'),
+    contextMapExample: path.join(packageRoot, '.ralph', 'context-map.example.md'),
+  };
 }
