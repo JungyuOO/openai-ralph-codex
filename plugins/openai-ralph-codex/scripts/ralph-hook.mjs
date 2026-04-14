@@ -1,18 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const repoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../..',
-);
-const statePath = path.join(repoRoot, '.ralph', 'state.json');
-const taskGraphPath = path.join(repoRoot, '.ralph', 'tasks.json');
+import { pathToFileURL } from 'node:url';
 
 export async function runHook(mode = 'user-prompt') {
+  const projectRoot = resolveProjectRoot();
   const payload = await readPayload();
-  const state = await readJson(statePath);
-  const task = state?.currentTask ? await readCurrentTask(state.currentTask) : null;
+  const state = await readJsonPath(projectRoot, 'state.json');
+  const task = state?.currentTask
+    ? await readCurrentTask(projectRoot, state.currentTask)
+    : null;
 
   if (!state) {
     return '';
@@ -45,6 +41,10 @@ export async function readPayload() {
   } catch {
     return trimmed;
   }
+}
+
+export function resolveProjectRoot(env = process.env) {
+  return env.RALPH_PROJECT_ROOT || process.cwd();
 }
 
 export function buildSessionStartMessage(state, task) {
@@ -250,9 +250,13 @@ async function readJson(file) {
   }
 }
 
-async function readCurrentTask(taskId) {
-  const graph = await readJson(taskGraphPath);
+async function readCurrentTask(projectRoot, taskId) {
+  const graph = await readJsonPath(projectRoot, 'tasks.json');
   return graph?.tasks?.find((item) => item.id === taskId) ?? null;
+}
+
+async function readJsonPath(projectRoot, name) {
+  return readJson(path.join(projectRoot, '.ralph', name));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -61,6 +61,7 @@ The package now runs a postinstall step on global installs that tries to:
 
 - copy the plugin into `~/plugins/openai-ralph-codex`
 - update `~/.agents/plugins/marketplace.json`
+- register Ralph hook entries in `~/.codex/hooks.json`
 - mark the plugin as `INSTALLED_BY_DEFAULT`
 
 Manual fallback commands:
@@ -69,6 +70,13 @@ Manual fallback commands:
 ralph plugin install
 ralph plugin status
 ```
+
+That means the intended path is now:
+
+1. install the package globally
+2. open any project
+3. run `codex`
+4. let the Ralph plugin hooks auto-surface PRD / planning / verify / blocked-work routing inside Codex
 
 ## Plugin package
 

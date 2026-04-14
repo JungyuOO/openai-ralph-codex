@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "description": "Codex-native CLI harness for PRD-driven software delivery",
   "type": "module",
+  "files": [
+    "dist",
+    "plugins",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "ralph": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "postinstall": "node scripts/postinstall-plugin.mjs",
     "setup:plugin": "node scripts/install-home-plugin.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",

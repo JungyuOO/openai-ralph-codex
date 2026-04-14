@@ -38,11 +38,13 @@ export async function runPluginStatus(): Promise<void> {
   const home = os.homedir();
   const pluginDir = path.join(home, 'plugins', 'openai-ralph-codex');
   const marketplacePath = path.join(home, '.agents', 'plugins', 'marketplace.json');
+  const hooksPath = path.join(home, '.codex', 'hooks.json');
 
   console.log('Ralph plugin status');
   console.log(`  plugin dir:    ${pluginDir}`);
   console.log(`  installed:     ${(await exists(pluginDir)) ? 'yes' : 'no'}`);
   console.log(`  marketplace:   ${marketplacePath}`);
+  console.log(`  codex hooks:   ${hooksPath}`);
 
   if (!(await exists(marketplacePath))) {
     console.log('  available:     no marketplace file found');
@@ -65,4 +67,19 @@ export async function runPluginStatus(): Promise<void> {
   console.log(
     `  installation:  ${entry.policy?.installation ?? '(unknown)'}`,
   );
+
+  if (!(await exists(hooksPath))) {
+    console.log('  hooks active:  no hooks.json found');
+    return;
+  }
+
+  const hooks = await readJson<{
+    hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+  }>(hooksPath);
+  const active = Object.values(hooks.hooks ?? {}).some((entries) =>
+    entries.some((entry) =>
+      entry.hooks?.some((hook) => hook.command?.includes('ralph-hook.mjs')),
+    ),
+  );
+  console.log(`  hooks active:  ${active ? 'yes' : 'no'}`);
 }
