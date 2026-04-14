@@ -4,13 +4,19 @@ let hookModule: {
   buildPostWriteMessage: (state: unknown, task: { id: string } | null) => string;
   buildPromptMessage: (
     payload: unknown,
-    state: { phase: string },
-    task: { id: string; status: string } | null,
+    state: { phase: string; nextAction?: string },
+    task: { id: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
   buildSessionStartMessage: (
-    state: { phase: string },
-    task: { id: string; title: string; status: string } | null,
+    state: { phase: string; nextAction?: string },
+    task: { id: string; title: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
+  classifyPromptIntent: (text: string) => string;
+  recommendCommands: (
+    intent: string,
+    state: { phase: string; nextAction?: string },
+    task: { id: string; status: string; splitRecommended?: boolean } | null,
+  ) => string[];
   extractText: (payload: unknown) => string;
   matchesRalphIntent: (text: string) => boolean;
 };
@@ -27,6 +33,12 @@ describe('ralph plugin hooks', () => {
       hookModule.matchesRalphIntent('Please plan this PRD and resume blocked work'),
     ).toBe(true);
     expect(hookModule.matchesRalphIntent('Just tell me a joke')).toBe(false);
+    expect(hookModule.classifyPromptIntent('Please verify this Ralph task')).toBe(
+      'verify',
+    );
+    expect(
+      hookModule.classifyPromptIntent('Implement the next Ralph task from the PRD'),
+    ).toBe('plan');
   });
 
   test('extracts prompt text from common payload shapes', () => {
@@ -45,20 +57,32 @@ describe('ralph plugin hooks', () => {
       { phase: 'running' },
       { id: 'T003', status: 'pending' },
     );
-    expect(message).toContain('T003');
-    expect(message).toContain('ralph run');
+    expect(message).toContain('Ralph auto-routing policy');
+    expect(message).toContain('ralph plan');
   });
 
-  test('builds session start and post-write hints', () => {
+  test('builds session start, post-write, and blocked resume hints', () => {
     expect(
       hookModule.buildSessionStartMessage(
         { phase: 'planned' },
         { id: 'T001', title: 'Implement verify', status: 'pending' },
       ),
-    ).toContain('T001 Implement verify');
+    ).toContain('Recommended next command: ralph status');
 
     expect(hookModule.buildPostWriteMessage({}, { id: 'T001' })).toContain(
       'ralph verify',
     );
+
+    expect(
+      hookModule.recommendCommands(
+        'resume',
+        {
+          phase: 'blocked',
+          nextAction:
+            'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `ralph plan`',
+        },
+        { id: 'T001', status: 'blocked', splitRecommended: true },
+      ),
+    ).toEqual(['ralph status', 'ralph plan']);
   });
 });

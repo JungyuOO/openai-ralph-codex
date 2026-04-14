@@ -48,34 +48,38 @@ export async function readPayload() {
 }
 
 export function buildSessionStartMessage(state, task) {
+  const recommendation = recommendCommands('status', state, task);
   if (!task) {
-    return `Ralph available: phase=${state.phase}. Suggested entrypoint: ralph status`;
-  }
-
-  return `Ralph available: ${task.id} ${task.title} (${task.status}). Suggested entrypoint: ralph status`;
-}
-
-export function buildPostWriteMessage(_state, task) {
-  if (!task) {
-    return 'Ralph reminder: review state with `ralph status` before the next run.';
-  }
-
-  return `Ralph reminder: after edits, review ${task.id} with \`ralph status\` or run \`ralph verify\`.`;
-}
-
-export function buildPromptMessage(payload, state, task) {
-  const promptText = extractText(payload).toLowerCase();
-  if (!matchesRalphIntent(promptText)) {
-    return '';
-  }
-
-  if (!task) {
-    return `Ralph workflow detected: current phase=${state.phase}. Suggested entrypoints: ralph init, ralph plan, ralph status`;
+    return `Ralph auto-routing ready: phase=${state.phase}. Recommended next command: ${recommendation.join(' -> ')}`;
   }
 
   return (
-    `Ralph workflow detected: current task ${task.id} (${task.status}). ` +
-    'Suggested entrypoints: ralph status, ralph plan, ralph run'
+    `Ralph auto-routing ready: ${task.id} ${task.title} (${task.status}, phase=${state.phase}). ` +
+    `Recommended next command: ${recommendation.join(' -> ')}`
+  );
+}
+
+export function buildPostWriteMessage(state, task) {
+  const recommendation = recommendCommands('post-write', state, task);
+  if (!task) {
+    return `Ralph post-write policy: ${recommendation.join(' -> ')}`;
+  }
+
+  return `Ralph post-write policy for ${task.id}: ${recommendation.join(' -> ')}`;
+}
+
+export function buildPromptMessage(payload, state, task) {
+  const promptText = extractText(payload);
+  const intent = classifyPromptIntent(promptText);
+  if (intent === 'ignore') {
+    return '';
+  }
+
+  const recommendation = recommendCommands(intent, state, task);
+  const reason = reasonForIntent(intent, state, task);
+  return (
+    `Ralph auto-routing policy (${intent}): ${reason}. ` +
+    `Recommended command path: ${recommendation.join(' -> ')}`
   );
 }
 
@@ -104,16 +108,138 @@ export function extractText(payload) {
 }
 
 export function matchesRalphIntent(text) {
-  return [
+  return classifyPromptIntent(text) !== 'ignore';
+}
+
+export function classifyPromptIntent(text) {
+  const normalized = text.toLowerCase();
+  if (!normalized.trim()) {
+    return 'ignore';
+  }
+
+  const hasRalphSignals = [
     'ralph',
     'prd',
-    'plan',
     'acceptance criteria',
     'task graph',
-    'blocked',
     'resume',
+    'blocked',
     'verify',
-  ].some((keyword) => text.includes(keyword));
+    'workflow',
+  ].some((keyword) => normalized.includes(keyword));
+
+  if (!hasRalphSignals) {
+    return 'ignore';
+  }
+
+  if (
+    ['verify', 'verification', 'test', 'tests', 'lint', 'typecheck', 'check'].some(
+      (keyword) => normalized.includes(keyword),
+    )
+  ) {
+    return 'verify';
+  }
+
+  if (
+    ['plan', 'prd', 'acceptance criteria', 'task graph', 'scope'].some((keyword) =>
+      normalized.includes(keyword),
+    )
+  ) {
+    return 'plan';
+  }
+
+  if (
+    ['resume', 'continue', 'unblock', 'blocked', 'retry'].some((keyword) =>
+      normalized.includes(keyword),
+    )
+  ) {
+    return 'resume';
+  }
+
+  if (
+    ['implement', 'build', 'fix', 'write code', 'run the next task', 'execute'].some(
+      (keyword) => normalized.includes(keyword),
+    )
+  ) {
+    return 'run';
+  }
+
+  return 'status';
+}
+
+export function recommendCommands(intent, state, task) {
+  const initPath = ['ralph init', 'ralph plan', 'ralph status'];
+  if (state.phase === 'initialized' || state.phase === 'uninitialized') {
+    return initPath;
+  }
+
+  if (intent === 'plan') {
+    return state.phase === 'blocked'
+      ? ['ralph status', 'ralph plan']
+      : ['ralph plan', 'ralph status'];
+  }
+
+  if (intent === 'verify') {
+    return ['ralph verify', 'ralph status'];
+  }
+
+  if (intent === 'resume') {
+    if (state.phase === 'blocked') {
+      return blockedNeedsReplan(state, task)
+        ? ['ralph status', 'ralph plan']
+        : ['ralph status', 'ralph resume', 'ralph run'];
+    }
+    return ['ralph status', 'ralph run'];
+  }
+
+  if (intent === 'run') {
+    if (state.phase === 'blocked') {
+      return blockedNeedsReplan(state, task)
+        ? ['ralph status', 'ralph plan']
+        : ['ralph status', 'ralph resume', 'ralph run'];
+    }
+    if (state.phase === 'planned' || state.phase === 'running') {
+      return ['ralph status', 'ralph run'];
+    }
+  }
+
+  if (intent === 'post-write') {
+    return state.phase === 'blocked'
+      ? ['ralph status', blockedNeedsReplan(state, task) ? 'ralph plan' : 'ralph resume']
+      : ['ralph status', 'ralph verify'];
+  }
+
+  return ['ralph status'];
+}
+
+export function reasonForIntent(intent, state, task) {
+  if (intent === 'plan') {
+    return 'prompt mentions PRD / planning concepts';
+  }
+  if (intent === 'verify') {
+    return 'prompt asks for validation or checks';
+  }
+  if (intent === 'resume') {
+    return state.phase === 'blocked'
+      ? 'prompt asks to continue blocked work'
+      : 'prompt asks to continue an existing Ralph loop';
+  }
+  if (intent === 'run') {
+    return task
+      ? `prompt maps to execution and current task is ${task.id}`
+      : 'prompt maps to execution work';
+  }
+  if (intent === 'post-write') {
+    return 'files changed, so Ralph should refresh status before the next step';
+  }
+  return 'Ralph state is available for this repository';
+}
+
+function blockedNeedsReplan(state, task) {
+  return (
+    /context budget|split .*config|re-run `ralph plan`/i.test(state.nextAction) ||
+    task?.splitRecommended === true
+  );
 }
 
 async function readJson(file) {

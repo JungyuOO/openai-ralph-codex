@@ -63,4 +63,9 @@ node plugins/openai-ralph-codex/scripts/ralph-cli.mjs resume
 - If `run` blocks due to context budget, split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then re-run `plan`.
 - Verification evidence is written under `.ralph/evidence/`.
 - This plugin includes lightweight hooks that surface Ralph hints on session start, prompt submission, and after file edits.
-- The hooks help auto-surface the Ralph workflow, but they do not replace user-visible command invocation or a true background daemon.
+- The hooks now apply an auto-routing policy:
+  - PRD / planning prompts prefer `ralph plan`
+  - execution prompts prefer `ralph run`
+  - validation prompts prefer `ralph verify`
+  - blocked / continue prompts prefer `ralph status`, then `ralph resume` or `ralph plan` depending on the blocked reason
+- The hooks help auto-surface the Ralph workflow, but they still do not replace user-visible command invocation or a true background daemon.
