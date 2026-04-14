@@ -174,6 +174,23 @@ A fresh isolated no-clone smoke run was verified for:
 - first relevant prompt bootstrap in a brand-new project directory
 - initial task graph generation
 
+## Release notes
+
+- [v0.1.1 draft release notes](docs/releases/v0.1.1.md)
+
+## Demo scripts
+
+Quick local demo helpers:
+
+- PowerShell: `scripts/demo-global-install.ps1`
+- Bash: `scripts/demo-global-install.sh`
+
+They demonstrate the published-package flow:
+
+1. confirm plugin status
+2. simulate a first relevant prompt
+3. show the generated `.ralph/` state and task graph
+
 ## Quick start
 
 Install once:
