@@ -43,9 +43,21 @@ describe('ralph plugin hooks', () => {
     expect(
       hookModule.classifyPromptIntent('Implement the next Ralph task from the PRD'),
     ).toBe('plan');
+    expect(
+      hookModule.classifyPromptIntent('Add authentication with password reset to this app'),
+    ).toBe('plan');
+    expect(
+      hookModule.classifyPromptIntent('Fix src/hooks/bridge.ts:326 null check'),
+    ).toBe('run');
+    expect(
+      hookModule.classifyPromptIntent('Continue the blocked work in this repo'),
+    ).toBe('resume');
     expect(hookModule.shouldBootstrapProject('Fix this blocked Ralph bug')).toBe(
       true,
     );
+    expect(
+      hookModule.shouldBootstrapProject('Create a PRD and break this feature down'),
+    ).toBe(true);
   });
 
   test('extracts prompt text from common payload shapes', () => {

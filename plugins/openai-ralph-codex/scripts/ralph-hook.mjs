@@ -196,58 +196,42 @@ export function classifyPromptIntent(text) {
     return 'ignore';
   }
 
-  const hasRalphSignals = [
-    'ralph',
-    'prd',
-    'acceptance criteria',
-    'task graph',
-    'resume',
-    'blocked',
-    'verify',
-    'workflow',
-    'feature',
-    'bug',
-    'fix',
-    'implement',
-  ].some((keyword) => normalized.includes(keyword));
+  const hasWorkSignals =
+    hasAny(normalized, PLAN_SIGNALS) ||
+    hasAny(normalized, VERIFY_SIGNALS) ||
+    hasAny(normalized, RESUME_SIGNALS) ||
+    hasAny(normalized, EXECUTION_SIGNALS) ||
+    hasConcreteAnchor(normalized) ||
+    looksLikeLargeScopedWork(normalized);
 
-  if (!hasRalphSignals) {
+  if (!hasWorkSignals) {
     return 'ignore';
   }
 
-  if (
-    ['verify', 'verification', 'test', 'tests', 'lint', 'typecheck', 'check'].some(
-      (keyword) => normalized.includes(keyword),
-    )
-  ) {
+  if (hasAny(normalized, VERIFY_SIGNALS)) {
     return 'verify';
   }
 
   if (
-    ['plan', 'prd', 'acceptance criteria', 'task graph', 'scope', 'feature'].some((keyword) =>
-      normalized.includes(keyword),
-    )
+    hasAny(normalized, PLAN_SIGNALS) ||
+    (hasAny(normalized, EXECUTION_SIGNALS) && looksLikeLargeScopedWork(normalized))
   ) {
     return 'plan';
   }
 
-  if (
-    ['resume', 'continue', 'unblock', 'blocked', 'retry'].some((keyword) =>
-      normalized.includes(keyword),
-    )
-  ) {
+  if (hasAny(normalized, RESUME_SIGNALS)) {
     return 'resume';
   }
 
-  if (
-    ['implement', 'build', 'fix', 'write code', 'run the next task', 'execute', 'bug'].some(
-      (keyword) => normalized.includes(keyword),
-    )
-  ) {
+  if (hasAny(normalized, EXECUTION_SIGNALS) && hasConcreteAnchor(normalized)) {
     return 'run';
   }
 
-  return 'status';
+  if (hasAny(normalized, EXECUTION_SIGNALS)) {
+    return 'run';
+  }
+
+  return 'ignore';
 }
 
 export function recommendCommands(intent, state, task) {
@@ -328,6 +312,103 @@ function blockedNeedsReplan(state, task) {
 function normalizePrompt(promptText) {
   return promptText.replace(/\s+/g, ' ').trim() || 'Describe the requested work';
 }
+
+function hasAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function hasConcreteAnchor(text) {
+  return (
+    /(^|\s)(src\/|app\/|lib\/|tests\/|docs\/|packages\/|server\/)/.test(text) ||
+    /\b[a-z0-9._/-]+\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|cs|cpp|c|swift|md|json|ya?ml)\b/.test(text) ||
+    /#[0-9]+\b/.test(text) ||
+    /:[0-9]+\b/.test(text)
+  );
+}
+
+function looksLikeLargeScopedWork(text) {
+  return (
+    hasAny(text, LARGE_SCOPE_SIGNALS) ||
+    /(build|create|implement|add)\s+(an?\s+)?(app|feature|workflow|dashboard|system|integration)/.test(text)
+  );
+}
+
+const PLAN_SIGNALS = [
+  'ralph',
+  'prd',
+  'acceptance criteria',
+  'task graph',
+  'plan this',
+  'plan the',
+  'break this down',
+  'break it down',
+  'scope this',
+  'scope the',
+  'roadmap',
+  'user story',
+  'user stories',
+  'requirements',
+  'spec this',
+  'spec out',
+];
+
+const VERIFY_SIGNALS = [
+  'verify',
+  'verification',
+  'validate',
+  'validation',
+  'regression',
+  'test',
+  'tests',
+  'lint',
+  'typecheck',
+  'check this',
+  'check the current',
+  'pass checks',
+];
+
+const RESUME_SIGNALS = [
+  'resume',
+  'continue',
+  'pick up',
+  'blocked',
+  'stuck',
+  'retry',
+  'unblock',
+  "what's next",
+  'what is next',
+  'where did we leave off',
+];
+
+const EXECUTION_SIGNALS = [
+  'implement',
+  'build',
+  'fix',
+  'write code',
+  'run the next task',
+  'execute',
+  'add ',
+  'create ',
+  'update ',
+  'refactor ',
+  'ship ',
+  'work on ',
+  'tackle ',
+];
+
+const LARGE_SCOPE_SIGNALS = [
+  'feature',
+  'authentication',
+  'login',
+  'password reset',
+  'dashboard',
+  'migration',
+  'workflow',
+  'integration',
+  'service',
+  'api',
+  'system',
+];
 
 async function readJson(file) {
   try {
