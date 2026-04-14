@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/ralph-hook.mjs session-start",
+            "statusMessage": "Checking Ralph project state"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/ralph-hook.mjs user-prompt",
+            "statusMessage": "Evaluating Ralph workflow routing"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/ralph-hook.mjs post-write",
+            "statusMessage": "Refreshing Ralph task context"
+          }
+        ]
+      }
+    ]
+  }
+}

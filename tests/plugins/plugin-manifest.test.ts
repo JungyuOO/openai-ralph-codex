@@ -21,12 +21,14 @@ describe('openai-ralph-codex plugin packaging', () => {
       name: string;
       version: string;
       skills?: string;
+      hooks?: string;
       interface: { displayName: string; defaultPrompt: string[] };
     };
 
     expect(pluginJson.name).toBe('openai-ralph-codex');
     expect(pluginJson.version).toBe('0.1.0');
     expect(pluginJson.skills).toBe('./skills/');
+    expect(pluginJson.hooks).toBe('./hooks.json');
     expect(pluginJson.interface.displayName).toBe('OpenAI Ralph Codex');
     expect(pluginJson.interface.defaultPrompt).toHaveLength(3);
   });
@@ -58,6 +60,23 @@ describe('openai-ralph-codex plugin packaging', () => {
         },
         category: 'Productivity',
       },
+    ]);
+  });
+
+  test('ships hook registrations for session start, prompt submit, and post-write checks', async () => {
+    const hooksJson = JSON.parse(
+      await readFile(
+        path.join(repoRoot, 'plugins', 'openai-ralph-codex', 'hooks.json'),
+        'utf8',
+      ),
+    ) as {
+      hooks: Record<string, unknown[]>;
+    };
+
+    expect(Object.keys(hooksJson.hooks)).toEqual([
+      'SessionStart',
+      'UserPromptSubmit',
+      'PostToolUse',
     ]);
   });
 });

@@ -62,4 +62,5 @@ node plugins/openai-ralph-codex/scripts/ralph-cli.mjs resume
 - Use `run --dry-run` to inspect the next prompt without launching Codex.
 - If `run` blocks due to context budget, split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then re-run `plan`.
 - Verification evidence is written under `.ralph/evidence/`.
-- This plugin packages the Ralph workflow surface, but it does not run as a background daemon by itself.
+- This plugin includes lightweight hooks that surface Ralph hints on session start, prompt submission, and after file edits.
+- The hooks help auto-surface the Ralph workflow, but they do not replace user-visible command invocation or a true background daemon.

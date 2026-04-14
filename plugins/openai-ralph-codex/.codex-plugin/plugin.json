@@ -18,6 +18,7 @@
     "verification"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "OpenAI Ralph Codex",
     "shortDescription": "PRD-driven Codex workflow with planning, verification, and recovery.",
