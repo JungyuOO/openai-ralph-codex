@@ -1,4 +1,4 @@
-# Ralph
+# OPENAI-Ralph-codex
 
 ![Ralph](ralph.png)
 
@@ -20,7 +20,7 @@ After installation, Ralph is designed to:
 
 ## Prerequisites
 
-- [Codex CLI](https://www.npmjs.com/package/@openai/codex) installed and authenticated
+- Codex CLI installed and authenticated
 - Node.js 18+
 
 ## Install
@@ -148,32 +148,6 @@ So the current state is:
 - lazy-bootstrap capable
 - still command-driven for actual execution
 
-## Verification
-
-Main checks:
-
-```bash
-npm run typecheck
-npm run build
-npm test
-```
-
-Real Codex runner smoke:
-
-```bash
-npm run test:codex-smoke
-```
-
-## Fresh install smoke
-
-A fresh isolated no-clone smoke run was verified for:
-
-- global install
-- home plugin installation
-- Codex hook registration
-- first relevant prompt bootstrap in a brand-new project directory
-- initial task graph generation
-
 ## Release notes
 
 - [v0.1.1 draft release notes](docs/releases/v0.1.1.md)
@@ -190,6 +164,12 @@ They demonstrate the published-package flow:
 1. confirm plugin status
 2. simulate a first relevant prompt
 3. show the generated `.ralph/` state and task graph
+
+## Notes for contributors
+
+The `tests/` folder exists for source-repo quality assurance.
+It is not shipped in the published npm package, so end users installing
+`openai-ralph-codex` do not download the test suite.
 
 ## Quick start
 
