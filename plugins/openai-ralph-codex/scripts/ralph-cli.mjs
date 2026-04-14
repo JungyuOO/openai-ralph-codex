@@ -8,6 +8,7 @@ const packageRoot = path.resolve(
   '../../..',
 );
 const repoCliPath = path.join(packageRoot, 'dist', 'cli.js');
+const projectRoot = process.env.RALPH_PROJECT_ROOT || process.cwd();
 
 const command =
   process.env.RALPH_CLI_BIN ||
@@ -16,10 +17,9 @@ const args =
   command === process.execPath
     ? [repoCliPath, ...process.argv.slice(2)]
     : process.argv.slice(2);
-const cwd = existsSync(repoCliPath) ? packageRoot : process.cwd();
 
 const child = spawn(command, args, {
-  cwd,
+  cwd: projectRoot,
   stdio: 'inherit',
   shell: false,
 });

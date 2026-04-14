@@ -1,10 +1,30 @@
-import { readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+
+const packageRoot = path.resolve(process.cwd());
 
 export async function runHook(mode = 'user-prompt') {
   const projectRoot = resolveProjectRoot();
   const payload = await readPayload();
+  const promptText = extractText(payload);
+
+  if (mode === 'user-prompt' && shouldBootstrapProject(promptText)) {
+    const didBootstrap = await maybeBootstrapProject(projectRoot, promptText);
+    if (didBootstrap) {
+      const state = await readJsonPath(projectRoot, 'state.json');
+      const task = state?.currentTask
+        ? await readCurrentTask(projectRoot, state.currentTask)
+        : null;
+      return (
+        `Ralph auto-bootstrap completed for this project. ` +
+        `Recommended command path: ${recommendCommands('run', state ?? { phase: 'planned' }, task).join(' -> ')}`
+      );
+    }
+  }
+
   const state = await readJsonPath(projectRoot, 'state.json');
   const task = state?.currentTask
     ? await readCurrentTask(projectRoot, state.currentTask)
@@ -45,6 +65,66 @@ export async function readPayload() {
 
 export function resolveProjectRoot(env = process.env) {
   return env.RALPH_PROJECT_ROOT || process.cwd();
+}
+
+export function shouldBootstrapProject(text) {
+  return classifyPromptIntent(text) !== 'ignore';
+}
+
+export async function maybeBootstrapProject(projectRoot, promptText) {
+  const stateExists = existsSync(path.join(projectRoot, '.ralph', 'state.json'));
+  if (stateExists) {
+    return false;
+  }
+
+  await runRalphCommand(projectRoot, ['init']);
+  await writeBootstrapPrd(projectRoot, promptText);
+  await runRalphCommand(projectRoot, ['plan']);
+  return true;
+}
+
+export async function writeBootstrapPrd(projectRoot, promptText) {
+  await mkdir(path.join(projectRoot, '.ralph'), { recursive: true });
+  const existingPrd = findProjectPrdPath(projectRoot);
+  const target = path.join(projectRoot, '.ralph', 'prd.md');
+
+  if (existingPrd) {
+    await copyFile(existingPrd, target);
+    return target;
+  }
+
+  await writeFile(target, buildBootstrapPrd(promptText), 'utf8');
+  return target;
+}
+
+export function findProjectPrdPath(projectRoot) {
+  for (const relative of ['PRD.md', 'prd.md', path.join('docs', 'PRD.md'), path.join('docs', 'prd.md')]) {
+    const candidate = path.join(projectRoot, relative);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function buildBootstrapPrd(promptText) {
+  const normalized = normalizePrompt(promptText);
+  return [
+    '# Product Requirements Document',
+    '',
+    '## Goal',
+    normalized,
+    '',
+    '## Scope',
+    '### In scope',
+    `- ${normalized}`,
+    '',
+    '## Acceptance Criteria',
+    `- Complete the requested work: ${normalized}`,
+    '- Keep changes minimal and verifiable',
+    '- Leave the project in a state where verification can run cleanly',
+    '',
+  ].join('\n');
 }
 
 export function buildSessionStartMessage(state, task) {
@@ -126,6 +206,10 @@ export function classifyPromptIntent(text) {
     'blocked',
     'verify',
     'workflow',
+    'feature',
+    'bug',
+    'fix',
+    'implement',
   ].some((keyword) => normalized.includes(keyword));
 
   if (!hasRalphSignals) {
@@ -141,7 +225,7 @@ export function classifyPromptIntent(text) {
   }
 
   if (
-    ['plan', 'prd', 'acceptance criteria', 'task graph', 'scope'].some((keyword) =>
+    ['plan', 'prd', 'acceptance criteria', 'task graph', 'scope', 'feature'].some((keyword) =>
       normalized.includes(keyword),
     )
   ) {
@@ -157,7 +241,7 @@ export function classifyPromptIntent(text) {
   }
 
   if (
-    ['implement', 'build', 'fix', 'write code', 'run the next task', 'execute'].some(
+    ['implement', 'build', 'fix', 'write code', 'run the next task', 'execute', 'bug'].some(
       (keyword) => normalized.includes(keyword),
     )
   ) {
@@ -242,6 +326,10 @@ function blockedNeedsReplan(state, task) {
   );
 }
 
+function normalizePrompt(promptText) {
+  return promptText.replace(/\s+/g, ' ').trim() || 'Describe the requested work';
+}
+
 async function readJson(file) {
   try {
     return JSON.parse(await readFile(file, 'utf8'));
@@ -257,6 +345,29 @@ async function readCurrentTask(projectRoot, taskId) {
 
 async function readJsonPath(projectRoot, name) {
   return readJson(path.join(projectRoot, '.ralph', name));
+}
+
+async function runRalphCommand(projectRoot, args) {
+  const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'ralph-cli.mjs');
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [scriptPath, ...args], {
+      cwd: projectRoot,
+      stdio: 'ignore',
+      shell: false,
+      env: {
+        ...process.env,
+        RALPH_PROJECT_ROOT: projectRoot,
+      },
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if ((code ?? 1) !== 0) {
+        reject(new Error(`ralph ${args.join(' ')} exited with code ${code ?? 1}`));
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

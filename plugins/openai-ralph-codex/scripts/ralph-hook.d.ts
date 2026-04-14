@@ -1,5 +1,17 @@
 export function runHook(mode?: string): Promise<string>;
 export function readPayload(): Promise<unknown>;
+export function resolveProjectRoot(env?: Record<string, string | undefined>): string;
+export function shouldBootstrapProject(text: string): boolean;
+export function maybeBootstrapProject(
+  projectRoot: string,
+  promptText: string,
+): Promise<boolean>;
+export function writeBootstrapPrd(
+  projectRoot: string,
+  promptText: string,
+): Promise<string>;
+export function findProjectPrdPath(projectRoot: string): string | null;
+export function buildBootstrapPrd(promptText: string): string;
 export function buildSessionStartMessage(
   state: { phase: string; nextAction?: string },
   task: { id: string; title: string; status: string; splitRecommended?: boolean } | null,

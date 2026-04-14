@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 
 let hookModule: {
+  buildBootstrapPrd: (promptText: string) => string;
   buildPostWriteMessage: (state: unknown, task: { id: string } | null) => string;
   buildPromptMessage: (
     payload: unknown,
@@ -12,6 +13,7 @@ let hookModule: {
     task: { id: string; title: string; status: string; splitRecommended?: boolean } | null,
   ) => string;
   classifyPromptIntent: (text: string) => string;
+  findProjectPrdPath: (projectRoot: string) => string | null;
   recommendCommands: (
     intent: string,
     state: { phase: string; nextAction?: string },
@@ -19,6 +21,7 @@ let hookModule: {
   ) => string[];
   extractText: (payload: unknown) => string;
   matchesRalphIntent: (text: string) => boolean;
+  shouldBootstrapProject: (text: string) => boolean;
 };
 
 beforeAll(async () => {
@@ -39,6 +42,9 @@ describe('ralph plugin hooks', () => {
     expect(
       hookModule.classifyPromptIntent('Implement the next Ralph task from the PRD'),
     ).toBe('plan');
+    expect(hookModule.shouldBootstrapProject('Fix this blocked Ralph bug')).toBe(
+      true,
+    );
   });
 
   test('extracts prompt text from common payload shapes', () => {
@@ -84,5 +90,14 @@ describe('ralph plugin hooks', () => {
         { id: 'T001', status: 'blocked', splitRecommended: true },
       ),
     ).toEqual(['ralph status', 'ralph plan']);
+  });
+
+  test('creates a bootstrap PRD from a first prompt', () => {
+    const prd = hookModule.buildBootstrapPrd(
+      'Build a PRD-driven delivery loop for this repository',
+    );
+    expect(prd).toContain('# Product Requirements Document');
+    expect(prd).toContain('Build a PRD-driven delivery loop for this repository');
+    expect(prd).toContain('## Acceptance Criteria');
   });
 });
