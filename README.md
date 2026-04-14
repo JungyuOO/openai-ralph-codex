@@ -1,77 +1,71 @@
-# openai-ralph-codex
+# OpenAI Ralph Codex
 
-`openai-ralph-codex` is a Codex-native CLI harness for PRD-driven software delivery.
+![Ralph](./ralph.png)
 
-It helps a repo move through a repeatable loop:
+OpenAI Ralph Codex packages a Ralph-style delivery loop for Codex:
 
-1. initialize local Ralph state
-2. turn a PRD into a task graph
-3. choose the next task that fits the context budget
-4. run Codex on that task
-5. verify the result
-6. capture evidence and recover from failures
+- plan work from a PRD
+- keep tasks small enough for the current context budget
+- run Codex on one bounded task at a time
+- verify results automatically
+- capture evidence
+- recover through retry / blocked / resume flows
 
-## Current CLI commands
+This repository ships both:
 
-- `ralph init` — create working files from tracked `.ralph/*.example` templates
-- `ralph plan` — parse `.ralph/prd.md` into `.ralph/tasks.json`
-- `ralph run` — execute the next runnable task through the configured runner
-- `ralph run --dry-run` — print the runner prompt without launching Codex
-- `ralph verify` — run configured verification commands without mutating state
-- `ralph resume` — re-queue blocked or interrupted work
-- `ralph status` — print the current Ralph phase, task, and next action
+1. a **CLI** (`ralph`)
+2. a **repo-local Codex plugin package** (`plugins/openai-ralph-codex`)
 
-## What is implemented today
+## What this is
 
-- PRD bullet extraction into a persisted task graph
-- context-budget estimation per task
-- scheduler enforcement that blocks work that is too broad
-- automatic verification after `ralph run`
-- verification evidence capture under `.ralph/evidence/`
-- retry / blocked recovery flow
-- standalone verification command
-- real Codex CLI smoke coverage for the runner path
+This is not a separate shell loop like `ralph.sh`.
 
-## Platform note
+Instead, this repo gives Codex a plugin-friendly Ralph surface backed by a
+real Node CLI:
 
-The CLI is a Node-based command-line tool and is intended to run on:
+- `ralph init`
+- `ralph plan`
+- `ralph run`
+- `ralph verify`
+- `ralph resume`
+- `ralph status`
 
-- Windows
-- macOS
-- Linux
+The plugin wraps that CLI so Codex can use the Ralph workflow from inside
+the repository.
 
-Current validation status:
-
-- Windows live Codex runner smoke: verified
-- Standard unit/integration test suite: platform-neutral Node/Vitest coverage
-- macOS/Linux live Codex smoke: supported by the same runner path, but not directly validated in this repository yet
-
-## Requirements
+## Prerequisites
 
 - Node.js 18+
-- a working `codex` CLI installation for real runner usage
-- Codex auth configured locally if you want to run the live smoke test
+- Codex CLI installed and authenticated for real runner usage
 
-## Development setup
+## Setup
 
 ```bash
 npm install
-npm run typecheck
 npm run build
-npm test
 ```
 
-## Quick start
+That builds the CLI to `dist/cli.js`, which is what the plugin wrapper
+uses.
+
+## Plugin package
+
+This repository already includes a repo-local plugin package:
+
+- plugin manifest: `plugins/openai-ralph-codex/.codex-plugin/plugin.json`
+- marketplace entry: `.agents/plugins/marketplace.json`
+- workflow skill: `plugins/openai-ralph-codex/skills/ralph-workflow/SKILL.md`
+- wrapper script: `plugins/openai-ralph-codex/scripts/ralph-cli.mjs`
+
+The wrapper runs the built CLI from the repository root:
 
 ```bash
-npm run build
-node dist/cli.js init
-node dist/cli.js plan
-node dist/cli.js status
-node dist/cli.js run --dry-run
+node plugins/openai-ralph-codex/scripts/ralph-cli.mjs status
 ```
 
-If you install the package as a CLI, the same flow is:
+## How to use it in this repo
+
+### Direct CLI usage
 
 ```bash
 ralph init
@@ -80,21 +74,67 @@ ralph status
 ralph run
 ```
 
-## Real Codex runner smoke
-
-The default test suite keeps the live Codex smoke test skipped so normal CI/dev runs stay offline-safe.
-
-Run it explicitly when you change runner launch logic:
+Or with the built local wrapper:
 
 ```bash
-npm run test:codex-smoke
+node plugins/openai-ralph-codex/scripts/ralph-cli.mjs init
+node plugins/openai-ralph-codex/scripts/ralph-cli.mjs plan
+node plugins/openai-ralph-codex/scripts/ralph-cli.mjs status
+node plugins/openai-ralph-codex/scripts/ralph-cli.mjs run
 ```
 
-This executes a real `codex exec` session and verifies that the repo can drive the local Codex CLI non-interactively.
+### Typical flow
+
+1. `ralph init` creates `.ralph/` working files from tracked examples
+2. `ralph plan` generates `.ralph/tasks.json` from `.ralph/prd.md`
+3. `ralph status` shows the current task, phase, and blocked hints
+4. `ralph run` executes the next task that still fits the context budget
+5. `ralph verify` runs verification only
+6. `ralph resume` re-queues blocked or interrupted work
+
+## What "automatic" means right now
+
+The plugin gives Codex a dedicated Ralph workflow surface, but it is **not
+yet an always-on background daemon** that silently takes over every task.
+
+Today, the automatic part is:
+
+- the plugin package is already present in the repo
+- the Ralph workflow skill is packaged for Codex use
+- once invoked, Ralph automatically handles:
+  - task selection
+  - context-budget enforcement
+  - verification
+  - evidence capture
+  - retry / blocked transitions
+
+What is **not** implemented yet:
+
+- a permanent background agent that watches every repo event
+- universal auto-routing hooks that force Codex to use Ralph on every task
+
+So the current state is:
+
+- **plugin-ready**
+- **Codex-friendly**
+- **workflow automation inside Ralph**
+- **not yet fully daemonized / always-on**
+
+## Current capabilities
+
+- PRD → task graph generation
+- task-level context estimation
+- scheduler enforcement for oversize tasks
+- standalone verification
+- evidence capture under `.ralph/evidence/`
+- retry budget and blocked-state handling
+- resume path for interrupted or manually unblocked work
+- repo-local Codex plugin packaging
+- Windows live Codex runner smoke coverage
 
 ## Runtime files
 
-Ralph keeps local working state under `.ralph/`:
+Ralph keeps working state under `.ralph/`:
 
 - `.ralph/config.yaml`
 - `.ralph/prd.md`
@@ -106,9 +146,9 @@ Ralph keeps local working state under `.ralph/`:
 
 Only the example templates should be committed by default.
 
-## Verification expectations
+## Verification
 
-Before finishing a logical unit of work in this repo, run:
+Main repo checks:
 
 ```bash
 npm run typecheck
@@ -116,8 +156,14 @@ npm run build
 npm test
 ```
 
-And when runner launch logic changes:
+Real Codex runner smoke:
 
 ```bash
 npm run test:codex-smoke
 ```
+
+## Workflow visualization
+
+The repository also includes a GitHub Pages flow view under `workflow/`
+that explains how Ralph moves through planning, execution, verification,
+and recovery.
