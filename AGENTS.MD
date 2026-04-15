@@ -25,7 +25,7 @@ The goal is to help Codex complete long-horizon projects more reliably through:
 - Before `git add -A`, update `.gitignore` for any new local/runtime/generated artifacts.
 - Prefer minimal, correct changes over broad rewrites.
 - If a task is too large, split it before implementation.
-- For repo-local releases, add `docs/releases/vX.Y.Z.md` using a product-style structure: version header, short summary paragraph, Highlights, What's Changed, and Verification. Keep this rule repo-local only; do not ship it inside distributed plugin/runtime prompts or end-user assets.
+- For repo-local releases, add `docs/releases/vX.Y.Z.md` using a product-style structure: version header, short summary paragraph, Highlights, What's Changed, and Verification. In Verification, prefer ASCII status text like `(passed)` over emoji/status glyphs to avoid encoding issues in scripted GitHub release publishing. Keep this rule repo-local only; do not ship it inside distributed plugin/runtime prompts or end-user assets.
 
 ## Implementation priorities
 1. `init`
