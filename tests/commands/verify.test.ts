@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 import { runVerify } from '../../src/commands/verify.js';
+import { createInitialState } from '../../src/schemas/state.js';
 import { ralphPaths, type RalphPaths } from '../../src/utils/paths.js';
 
 let tmp: string;
@@ -67,6 +68,27 @@ describe('runVerify', () => {
     expect(evidence['command-02/result.json']).toBeUndefined();
     expect(process.exitCode).toBe(1);
   });
+
+  test('uses current task verification hints when config commands are empty', async () => {
+    await writeConfig([]);
+    await writeTaskGraph([
+      {
+        id: 'T001',
+        title: 'Hint-driven verify task',
+        verificationHints: {
+          commands: [shellCommand(process.execPath, scriptPath, '0', 'hint', '-')],
+          notes: [],
+        },
+      },
+    ]);
+    await writeState({ ...createInitialState(), phase: 'running', currentTask: 'T001' });
+
+    await runVerify({ cwd: tmp });
+
+    const evidence = await readEvidenceFiles();
+    expect(evidence['command-01/stdout.txt']).toBe('hint');
+    expect(process.exitCode).toBeUndefined();
+  });
 });
 
 async function writeConfig(commands: string[]): Promise<void> {
@@ -80,6 +102,27 @@ async function writeConfig(commands: string[]): Promise<void> {
     }),
     'utf8',
   );
+}
+
+async function writeTaskGraph(tasks: Array<Record<string, unknown>>): Promise<void> {
+  await writeFile(
+    paths.tasks,
+    JSON.stringify(
+      {
+        version: 1,
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        source: '.ralph/prd.md',
+        tasks,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
+}
+
+async function writeState(state: Record<string, unknown>): Promise<void> {
+  await writeFile(paths.state, JSON.stringify(state, null, 2) + '\n', 'utf8');
 }
 
 function shellCommand(...parts: string[]): string {

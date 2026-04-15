@@ -1,9 +1,12 @@
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { ralphPaths } from '../utils/paths.js';
-import { exists, readTextUtf8 } from '../utils/fs.js';
+import { exists, readJson, readTextUtf8 } from '../utils/fs.js';
 import { ConfigSchema, type Config } from '../schemas/config.js';
+import { TaskGraphSchema } from '../schemas/tasks.js';
+import { StateSchema } from '../schemas/state.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
+import { resolveVerificationCommands } from '../core/verification-profile.js';
 
 export interface VerifyOptions {
   cwd?: string;
@@ -24,7 +27,8 @@ export async function runVerify(options: VerifyOptions = {}): Promise<void> {
     parseYaml(await readTextUtf8(p.config)),
   );
 
-  const commands = config.verification.commands;
+  const task = await loadCurrentTask(p.tasks, p.state);
+  const commands = resolveVerificationCommands(task, config);
   if (commands.length === 0) {
     console.log('No verification commands configured.');
     return;
@@ -50,4 +54,21 @@ export async function runVerify(options: VerifyOptions = {}): Promise<void> {
 
 function timestampLabel(date: Date = new Date()): string {
   return date.toISOString().replace(/[:.]/g, '-');
+}
+
+async function loadCurrentTask(tasksPath: string, statePath: string) {
+  if (!(await exists(tasksPath)) || !(await exists(statePath))) {
+    return null;
+  }
+
+  const graph = TaskGraphSchema.safeParse(
+    await readJson<unknown>(tasksPath),
+  );
+  const state = StateSchema.safeParse(await readJson<unknown>(statePath));
+
+  if (!graph.success || !state.success || !state.data.currentTask) {
+    return null;
+  }
+
+  return graph.data.tasks.find((task) => task.id === state.data.currentTask) ?? null;
 }

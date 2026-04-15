@@ -198,6 +198,27 @@ describe('runRun', () => {
     await expect(access(path.join(paths.evidenceRoot, 'T001'))).rejects.toThrow();
     expect(process.exitCode).toBe(1);
   });
+
+  test('uses task verification hints when config-level verification commands are empty', async () => {
+    const verifyMarker = path.join(tmp, 'verify-hint.txt');
+    await seedRunFixture({
+      runnerCode: 0,
+      verificationCommands: [],
+      task: {
+        verificationHints: {
+          commands: [shellCommand(process.execPath, scriptPath, '0', verifyMarker)],
+          notes: [],
+        },
+      },
+    });
+
+    await runRun({ cwd: tmp });
+
+    const evidence = await readEvidenceFiles('T001');
+    expect(evidence['command-01/result.json']).toContain('"exitCode": 0');
+    expect(await fileExists(verifyMarker)).toBe(true);
+    expect(process.exitCode).toBeUndefined();
+  });
 });
 
 interface RunFixtureInput {
@@ -211,6 +232,11 @@ interface RunFixtureInput {
     split_if_cross_layer?: boolean;
   };
   task?: {
+    acceptanceCriteria?: string[];
+    verificationHints?: {
+      commands?: string[];
+      notes?: string[];
+    };
     contextFiles?: string[];
     estimatedLoad?: number;
     crossLayer?: boolean;
@@ -259,6 +285,11 @@ async function seedRunFixture(input: RunFixtureInput): Promise<void> {
             id: 'T001',
             title: 'Test task',
             description: '',
+            acceptanceCriteria: task?.acceptanceCriteria ?? ['Test task completes successfully'],
+            verificationHints: {
+              commands: task?.verificationHints?.commands ?? [],
+              notes: task?.verificationHints?.notes ?? [],
+            },
             dependsOn: [],
             status: 'pending',
             retryCount: initialRetryCount,

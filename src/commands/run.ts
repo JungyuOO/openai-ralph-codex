@@ -16,6 +16,7 @@ import { formatTaskContext } from '../core/task-graph.js';
 import { runCodexCli } from '../runners/codex-cli.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
 import { buildPromptPack } from '../core/prompt-pack.js';
+import { resolveVerificationCommands } from '../core/verification-profile.js';
 import {
   fingerprintContextBudgetFailure,
   fingerprintRunnerFailure,
@@ -126,13 +127,15 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
     console.log(runnerResult.stdout.trimEnd());
   }
 
-  if (config.verification.commands.length > 0) {
+  const verificationCommands = resolveVerificationCommands(next, config);
+
+  if (verificationCommands.length > 0) {
     const evidenceDir = path.join(p.evidenceRoot, next.id, timestampLabel());
     console.log(
-      `Running ${config.verification.commands.length} verification command(s)...`,
+      `Running ${verificationCommands.length} verification command(s)...`,
     );
     const verifyResult = await runVerificationCommands(
-      config.verification.commands,
+      verificationCommands,
       cwd,
       { evidenceDir },
     );
