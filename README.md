@@ -14,10 +14,16 @@ so it behaves like a real Codex product:
 
 - structured project-local state under `.ralph/`
 - PRD -> task graph planning
+- classifier-led routing with loop-session latching
+- compact task-local prompt packs
+- compiled acceptance criteria + task-aware verification profiles
 - context-budgeted execution
 - verification as a hard gate
-- persisted evidence on disk
+- persisted evidence plus distilled project memory
 - explicit retry / blocked / resume behavior
+- failure fingerprints instead of raw-log replay
+- value/cost task selection
+- auto-split recovery proposals for broad blocked work
 - plugin + hook integration so Ralph can surface itself from normal Codex usage
 
 ## A simple mental model
@@ -77,14 +83,34 @@ This version improves the shape of that loop:
 ### Structured state
 Ralph persists explicit state instead of relying on loose progress notes alone:
 
-- `.ralph/state.json` - phase, current task, next action
-- `.ralph/tasks.json` - task graph with retry state and context metadata
+- `.ralph/state.json` - phase, current task, next action, loop session, and failure summary
+- `.ralph/tasks.json` - task graph with retry state, context metadata, task contracts, and last failure
 - `.ralph/progress.md` - append-only execution history
+- `.ralph/memory.json` - distilled reusable lessons from prior loop turns
+- `.ralph/split-proposals.json` - local split suggestions for broad blocked work
 
 ### PRD-driven task graph
 Ralph does not keep a vague list of "next things to do".
 It turns `.ralph/prd.md` into a runnable task graph that can be re-read,
 replanned, resumed, and verified.
+
+### Classifier-led routing
+Ralph no longer depends on keyword lists to decide whether the loop should
+start.
+
+Instead, Codex classifies prompt intent, and active loops use a session
+latch so continuation routing stays compact and state-aware.
+
+### Task contracts
+Each planned task now carries a compact task contract:
+
+- acceptance criteria
+- verification hints
+- scoped context files
+- recent failure context
+
+This lets the run prompt stay task-local without forcing the model to
+rediscover the same success criteria every turn.
 
 ### Context budget
 Each task carries context metadata.
@@ -96,9 +122,21 @@ Completion is not a guess.
 Verification commands run as real subprocesses, and their outputs are
 stored under `.ralph/evidence/`.
 
+Task-level verification hints can also act as a fallback verification
+profile when the project has not explicitly configured global checks yet.
+
 ### Explicit recovery
 Retry, blocked, and resume are not accidental edge cases.
 They are part of the normal loop design.
+
+Ralph also keeps compact failure fingerprints and can generate local
+split proposals when a task is too broad or repeatedly fails.
+
+### Throughput-aware selection
+Runnable work is no longer chosen by simple source order alone.
+
+Ralph scores runnable tasks by likely value and cost, favoring narrower
+work that unlocks downstream tasks sooner.
 
 ### Codex-native integration
 This version is packaged as a plugin + CLI, so Ralph can surface itself
@@ -183,12 +221,15 @@ Tasks are not just titles:
 - context files
 - estimated load
 - split recommendations
+- acceptance criteria
+- verification hints
+- last failure fingerprint
 
 all live in the task graph.
 
 ### 2. Select
-The scheduler picks the next runnable task that still fits the current
-context budget.
+The scheduler scores runnable tasks and prefers the next item that still
+fits the current context budget.
 
 If the task is too broad, Ralph does not pretend everything is fine - it
 can block the task and push the flow back toward planning.
@@ -200,8 +241,19 @@ The point is to keep execution small enough to fit a useful context
 window, instead of asking Codex to solve the entire project in a single
 shot.
 
+The runner prompt is built as a compact task pack:
+
+- task contract
+- scoped files
+- verification hints
+- distilled memory
+- recent failure fingerprint when relevant
+
 ### 4. Verify
 Configured project checks run after execution.
+
+If project-level verification commands are not set yet, Ralph can fall
+back to task-local verification hints compiled from the task contract.
 
 Ralph records:
 
@@ -220,6 +272,9 @@ From there, the loop branches:
 - **retry** -> re-queue if retry budget remains
 - **blocked** -> persist the blocker and wait for resume / replan
 
+Blocked work can also produce a local split proposal so the next planning
+pass starts from a concrete breakdown instead of a blank page.
+
 ### 6. Resume
 If the loop was interrupted or a task was blocked, `ralph resume` can
 re-queue work once the root cause has been addressed.
@@ -231,6 +286,8 @@ It routes based on intent and current state.
 
 Current routing looks like:
 
+- initial loop entry -> Codex stage classifier
+- active loop continuation -> shorter latched continuation routing
 - PRD / planning prompts -> `ralph plan`
 - execution prompts -> `ralph run`
 - verification prompts -> `ralph verify`
@@ -333,6 +390,8 @@ These are the kinds of prompts that should naturally route into Ralph:
 .ralph/tasks.json      persisted task graph
 .ralph/state.json      phase + next action + retry info
 .ralph/progress.md     append-only progress log
+.ralph/memory.json     distilled reusable loop memory
+.ralph/split-proposals.json local split suggestions for blocked work
 .ralph/evidence/       per-task verification artifacts
 ```
 
@@ -356,6 +415,8 @@ Ralph works because the loop can stop and restart without losing its place.
 - `tasks.json` preserves how that work was broken down
 - `state.json` preserves what Ralph thinks should happen next
 - `progress.md` preserves the loop history
+- `memory.json` preserves compact reusable lessons
+- `split-proposals.json` preserves suggested recovery breakdowns
 - `evidence/` preserves what verification actually proved
 
 That is what makes the loop resumable instead of fragile.
@@ -388,6 +449,8 @@ It is not trying to be:
 
 ## Release notes
 
+- [v0.1.3 draft release notes](docs/releases/v0.1.3.md)
+- [v0.1.2 draft release notes](docs/releases/v0.1.2.md)
 - [v0.1.1 draft release notes](docs/releases/v0.1.1.md)
 
 ## License
