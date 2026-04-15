@@ -15,6 +15,7 @@ import { findContextBlockedTask, pickNextTask } from '../core/scheduler.js';
 import { formatTaskContext } from '../core/task-graph.js';
 import { runCodexCli } from '../runners/codex-cli.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
+import { buildPromptPack } from '../core/prompt-pack.js';
 import {
   fingerprintContextBudgetFailure,
   fingerprintRunnerFailure,
@@ -87,7 +88,8 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
     );
   }
 
-  const prompt = buildPrompt(next);
+  const promptPack = buildPromptPack(next);
+  const prompt = promptPack.prompt;
 
   if (options.dryRun) {
     console.log('--- dry run: prompt would be sent to runner stdin ---');
@@ -305,22 +307,6 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
   }
 
   process.exitCode = 1;
-}
-
-function buildPrompt(task: Task): string {
-  const lines = [
-    `Task: ${task.id} ??${task.title}`,
-    task.description ? `Description: ${task.description}` : '',
-    ...formatTaskContext(task),
-    task.lastFailure
-      ? `Recent failure to avoid repeating: [${task.lastFailure.kind}] ${task.lastFailure.summary}`
-      : '',
-    '',
-    'Implement this task in the current repository.',
-    'Keep changes minimal and surgical.',
-    'Do not modify files unrelated to this task.',
-  ];
-  return lines.filter((line) => line !== '').join('\n') + '\n';
 }
 
 function contextBudgetReason(task: Task, config: Config): string {
