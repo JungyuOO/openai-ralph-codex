@@ -112,6 +112,17 @@ Each planned task now carries a compact task contract:
 This lets the run prompt stay task-local without forcing the model to
 rediscover the same success criteria every turn.
 
+### Adaptive prompt modes
+Ralph does not treat every task the same.
+
+It now applies internal prompt modes for:
+
+- **small** tasks that can stay especially compact
+- **balanced** tasks that need normal task-contract detail
+- **recovery** tasks that need extra failure/scope context
+
+These modes are internal product heuristics, not user-facing knobs.
+
 ### Context budget
 Each task carries context metadata.
 If a task becomes too broad, Ralph can block it and push the workflow back
@@ -248,6 +259,9 @@ The runner prompt is built as a compact task pack:
 - verification hints
 - distilled memory
 - recent failure fingerprint when relevant
+
+Small clean tasks now use a lighter prompt mode, while retry / blocked /
+broad-risk tasks keep a richer recovery-oriented prompt.
 
 ### 4. Verify
 Configured project checks run after execution.
