@@ -1,4 +1,4 @@
-import path from 'node:path';
+﻿import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ralphPaths } from '../utils/paths.js';
 import {
@@ -8,6 +8,7 @@ import {
   writeJson,
   writeTextUtf8,
 } from '../utils/fs.js';
+import { createInitialDistilledMemory, DistilledMemorySchema } from '../schemas/memory.js';
 import { StateSchema, createInitialState } from '../schemas/state.js';
 import { TaskGraphSchema, createEmptyTaskGraph } from '../schemas/tasks.js';
 
@@ -72,11 +73,19 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
   }
 
   if (!(await exists(p.progress))) {
-    const header = `# Progress\n\n- ${new Date().toISOString()} — project initialized\n`;
+    const header = `# Progress\n\n- ${new Date().toISOString()} ??project initialized\n`;
     await writeTextUtf8(p.progress, header);
     created.push(path.relative(cwd, p.progress));
   } else {
     skipped.push(path.relative(cwd, p.progress));
+  }
+
+  if (!(await exists(p.distilledMemory))) {
+    const memory = DistilledMemorySchema.parse(createInitialDistilledMemory());
+    await writeJson(p.distilledMemory, memory);
+    created.push(path.relative(cwd, p.distilledMemory));
+  } else {
+    skipped.push(path.relative(cwd, p.distilledMemory));
   }
 
   console.log('Ralph initialized.');

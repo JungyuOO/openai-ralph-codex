@@ -60,4 +60,27 @@ describe('buildPromptPack', () => {
     expect(pack.prompt).toContain('first_error: Expected true to be false');
     expect(pack.prompt).not.toContain('stderr.txt');
   });
+
+  test('includes distilled memory when provided', () => {
+    const pack = buildPromptPack(
+      {
+        id: 'T003',
+        title: 'Keep loop prompts compact',
+        description: '',
+        acceptanceCriteria: ['Prompts remain task-local.'],
+        verificationHints: { commands: [], notes: [] },
+        contextFiles: [],
+        estimatedLoad: 0.1,
+        crossLayer: false,
+        splitRecommended: false,
+        lastFailure: null,
+      },
+      {
+        distilledMemory: ['[success] T001 completed touching src/core/scheduler.ts.'],
+      },
+    );
+
+    expect(pack.prompt).toContain('[DISTILLED_MEMORY]');
+    expect(pack.prompt).toContain('memory: [success] T001 completed touching src/core/scheduler.ts.');
+  });
 });

@@ -21,6 +21,9 @@ export function buildPromptPack(
     | 'splitRecommended'
     | 'lastFailure'
   >,
+  options: {
+    distilledMemory?: string[];
+  } = {},
 ): PromptPack {
   const stableRules = [
     '- Implement only this task.',
@@ -70,10 +73,20 @@ export function buildPromptPack(
         ]
       : [];
 
+  const distilledMemory =
+    options.distilledMemory && options.distilledMemory.length > 0
+      ? [
+          '[DISTILLED_MEMORY]',
+          ...options.distilledMemory.map((entry) => `memory: ${normalize(entry)}`),
+        ]
+      : [];
+
   const prompt = [
     ...taskContract,
     '',
     ...verificationHints,
+    distilledMemory.length > 0 ? '' : '',
+    ...distilledMemory,
     iterationDelta.length > 0 ? '' : '',
     ...iterationDelta,
     '',
@@ -86,7 +99,7 @@ export function buildPromptPack(
   return {
     stableRules,
     taskContract: taskContract.filter((line) => line !== ''),
-    iterationDelta: [...verificationHints, ...iterationDelta].filter((line) => line !== ''),
+    iterationDelta: [...verificationHints, ...distilledMemory, ...iterationDelta].filter((line) => line !== ''),
     prompt,
   };
 }

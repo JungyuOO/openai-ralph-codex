@@ -55,6 +55,11 @@ describe('runInit', () => {
 
     const progress = await readFile(path.join(tmp, '.ralph', 'progress.md'), 'utf8');
     expect(progress).toContain('project initialized');
+
+    const memory = JSON.parse(
+      await readFile(path.join(tmp, '.ralph', 'memory.json'), 'utf8'),
+    );
+    expect(memory.entries).toEqual([]);
   });
 
   test('is idempotent: does not overwrite existing working files', async () => {

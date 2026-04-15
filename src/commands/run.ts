@@ -18,6 +18,11 @@ import { runVerificationCommands } from '../core/verify-runner.js';
 import { buildPromptPack } from '../core/prompt-pack.js';
 import { resolveVerificationCommands } from '../core/verification-profile.js';
 import {
+  appendDistilledMemory,
+  loadDistilledMemory,
+  renderDistilledMemory,
+} from '../core/distilled-memory.js';
+import {
   fingerprintContextBudgetFailure,
   fingerprintRunnerFailure,
   fingerprintVerificationFailure,
@@ -89,7 +94,11 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
     );
   }
 
-  const promptPack = buildPromptPack(next);
+  const promptPack = buildPromptPack(next, {
+    distilledMemory: renderDistilledMemory(
+      await loadDistilledMemory(p.distilledMemory),
+    ),
+  });
   const prompt = promptPack.prompt;
 
   if (options.dryRun) {
@@ -198,6 +207,11 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
     p.progress,
     `- ${new Date().toISOString()} ??completed ${next.id} (${runnerResult.durationMs}ms)\n`,
   );
+  await appendDistilledMemory(
+    p.distilledMemory,
+    'success',
+    summarizeSuccessfulTask(next),
+  );
   console.log(`OK ${next.id} completed in ${runnerResult.durationMs}ms`);
 }
 
@@ -244,6 +258,11 @@ async function handleContextBudgetBlock(input: {
     paths.progress,
     `- ${new Date().toISOString()} ??blocked ${task.id} by context budget (${reason})\n`,
   );
+  await appendDistilledMemory(
+    paths.distilledMemory,
+    'context',
+    `${task.id} exceeded the context budget: ${reason}. Split before retrying.`,
+  );
   console.error(`BLOCKED ${task.id} ??${reason}`);
   process.exitCode = 1;
 }
@@ -282,6 +301,11 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
       paths.progress,
       `- ${new Date().toISOString()} ??retry queued for ${task.id} (${reason})\n`,
     );
+    await appendDistilledMemory(
+      paths.distilledMemory,
+      'failure',
+      `${task.id} retry queued after ${task.lastFailure.summary}`,
+    );
     console.error(`RETRY ${task.id} (${task.retryCount}/${max}) ??${reason}`);
   } else {
     await saveState(
@@ -300,6 +324,11 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
     await appendProgress(
       paths.progress,
       `- ${new Date().toISOString()} ??failed ${task.id} after ${task.retryCount} attempt(s) (${reason})\n`,
+    );
+    await appendDistilledMemory(
+      paths.distilledMemory,
+      'failure',
+      `${task.id} blocked after repeated failure: ${task.lastFailure.summary}`,
     );
     console.error(`FAIL ${task.id} after ${task.retryCount} attempt(s) ??${reason}`);
   }
@@ -330,6 +359,14 @@ function contextBudgetReason(task: Task, config: Config): string {
 
 function timestampLabel(date: Date = new Date()): string {
   return date.toISOString().replace(/[:.]/g, '-');
+}
+
+function summarizeSuccessfulTask(task: Task): string {
+  const scope =
+    task.contextFiles.length > 0
+      ? `touching ${task.contextFiles.slice(0, 3).join(', ')}`
+      : 'with no explicit file scope';
+  return `${task.id} completed ${scope}.`;
 }
 
 async function appendProgress(file: string, entry: string): Promise<void> {
