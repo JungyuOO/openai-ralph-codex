@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, test } from 'vitest';
+ï»¿import { beforeAll, describe, expect, test } from 'vitest';
 
 let hookModule: {
   buildBootstrapPrd: (promptText: string) => string;
   buildClassifierPrompt: (context: Record<string, unknown>) => string;
+  buildContinuationClassifierPrompt: (context: Record<string, unknown>) => string;
   buildPostWriteMessage: (state: unknown, task: { id: string } | null) => string;
   buildPromptMessage: (
     decision: { stage: string; reason: string },
@@ -41,12 +42,14 @@ let hookModule: {
     options?: { mode?: 'auto' | 'classifier' | 'heuristic'; allowBootstrap?: boolean },
   ) => Promise<{ stage: string; reason: string; source: string }>;
   extractText: (payload: unknown) => string;
+  isLoopSessionLatched: (state: Record<string, unknown> | null) => boolean;
   matchesRalphIntent: (text: string) => boolean;
   recommendCommands: (
     intent: string,
     state: { phase: string; nextAction?: string },
     task: { id: string; status: string; splitRecommended?: boolean } | null,
   ) => string[];
+  resolveClassifierPrompt: (context: Record<string, unknown>) => string;
   shouldBootstrapProject: (text: string) => boolean;
 };
 
@@ -61,15 +64,15 @@ describe('ralph plugin stage classifier', () => {
     expect(
       hookModule.classifyHeuristically({
         projectRoot: '.',
-        promptText: '¿ä±¸»çÇ× Á¤¸®ÇÏ°í ÀÌ¾î¼­ ÁøÇàÇØÁà',
+        promptText: 'ìš”êµ¬ì‚¬í•­ ì •ë¦¬í•˜ê³  ì´ì–´ì„œ ì§„í–‰í•´ì¤˜',
         state: { phase: 'planned' },
         task: null,
         hasState: true,
         hasProjectPrd: false,
       }),
     ).toBe('ignore');
-    expect(hookModule.shouldBootstrapProject('PRD ¸¸µé°í ÀÛ¾÷ ³ª´²Áà')).toBe(false);
-    expect(hookModule.matchesRalphIntent('°è¼ÓÇØÁà')).toBe(false);
+    expect(hookModule.shouldBootstrapProject('PRD ë§Œë“¤ê³  ìž‘ì—… ë‚˜ëˆ ì¤˜')).toBe(false);
+    expect(hookModule.matchesRalphIntent('ê³„ì†í•´ì¤˜')).toBe(false);
   });
 
   test('returns ignore when heuristic mode is requested', async () => {
@@ -169,6 +172,25 @@ describe('ralph plugin stage classifier', () => {
     );
     expect(message).toContain('Ralph stage classifier (plan)');
     expect(message).toContain('ralph plan');
+  });
+
+  test('uses a continuation classifier prompt for active loop sessions', () => {
+    const prompt = hookModule.resolveClassifierPrompt({
+      projectRoot: '.',
+      promptText: 'continue with the current task',
+      state: {
+        phase: 'running',
+        currentTask: 'T003',
+        nextAction: 're-run `ralph run` to continue T003',
+        loopSession: { active: true, routingMode: 'latched' },
+      },
+      task: { id: 'T003', status: 'pending' },
+      hasState: true,
+      hasProjectPrd: true,
+    });
+
+    expect(prompt).toContain('continuation stage classifier');
+    expect(hookModule.isLoopSessionLatched({ phase: 'running', loopSession: { active: true } })).toBe(true);
   });
 
   test('extracts prompt text from common payload shapes', () => {

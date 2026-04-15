@@ -10,7 +10,25 @@ export type RalphRouteStage =
 export interface RalphRouteContext {
   projectRoot: string;
   promptText: string;
-  state: { phase?: string; currentTask?: string | null; nextAction?: string; lastStatus?: string } | null;
+  state:
+    | {
+        phase?: string;
+        currentTask?: string | null;
+        nextAction?: string;
+        lastStatus?: string;
+        lastFailureSummary?: string | null;
+        loopSession?: {
+          active?: boolean;
+          enteredAt?: string | null;
+          lastRoutedAt?: string | null;
+          lastPromptHash?: string | null;
+          lastStage?: RalphRouteStage | null;
+          lastDecisionReason?: string | null;
+          lastTaskId?: string | null;
+          routingMode?: 'full' | 'latched';
+        } | null;
+      }
+    | null;
   task: { id: string; title?: string; status?: string; splitRecommended?: boolean } | null;
   hasState: boolean;
   hasProjectPrd: boolean;
@@ -34,6 +52,15 @@ export function classifyWithCodex(
   context: RalphRouteContext,
 ): Promise<RalphRouteDecision | null>;
 export function buildClassifierPrompt(context: RalphRouteContext): string;
+export function buildContinuationClassifierPrompt(context: RalphRouteContext): string;
+export function isLoopSessionLatched(
+  state:
+    | (RalphRouteContext['state'] & {
+        loopSession?: { active?: boolean; routingMode?: 'full' | 'latched' } | null;
+      })
+    | null,
+): boolean;
+export function resolveClassifierPrompt(context: RalphRouteContext): string;
 export function classifyHeuristically(context: RalphRouteContext): RalphRouteStage;
 export function readPayload(): Promise<unknown>;
 export function resolveProjectRoot(env?: Record<string, string | undefined>): string;

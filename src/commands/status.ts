@@ -38,6 +38,14 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
   console.log(`  last status:   ${state.lastStatus}`);
   console.log(`  retry count:   ${state.retryCount}`);
   console.log(`  next action:   ${state.nextAction}`);
+  if (state.lastFailureSummary) {
+    console.log(`  last failure:  ${state.lastFailureSummary}`);
+  }
+  if (state.loopSession.active) {
+    console.log(
+      `  loop session:  active (${state.loopSession.routingMode}, stage=${state.loopSession.lastStage ?? 'unknown'})`,
+    );
+  }
   console.log(`  updated at:    ${state.updatedAt}`);
 
   if (currentTask) {

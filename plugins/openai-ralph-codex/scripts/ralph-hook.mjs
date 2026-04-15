@@ -69,6 +69,9 @@ export async function runHook(mode = 'user-prompt') {
       },
       { allowBootstrap: false },
     );
+    if (nextState && followupDecision.stage !== 'ignore') {
+      await persistLoopSession(projectRoot, nextState, followupDecision, promptText);
+    }
     return (
       `Ralph auto-bootstrap completed for this project. ` +
       `Stage classifier selected ${followupDecision.stage}. ` +
@@ -80,6 +83,7 @@ export async function runHook(mode = 'user-prompt') {
     return '';
   }
 
+  await persistLoopSession(projectRoot, state, initialDecision, promptText);
   return buildPromptMessage(initialDecision, state, task);
 }
 
@@ -137,7 +141,7 @@ export async function classifyWithCodex(context) {
       '-o',
       outputFile,
     ];
-    const prompt = buildClassifierPrompt(context);
+    const prompt = resolveClassifierPrompt(context);
     const result = await runExternalCommand(resolveCodexCommand(), args, {
       cwd: context.projectRoot,
       stdin: prompt,
@@ -214,6 +218,55 @@ export function buildClassifierPrompt(context) {
     '',
     'Do not use tools.',
   ].join('\n');
+}
+
+export function buildContinuationClassifierPrompt(context) {
+  const stateSummary = context.state
+    ? {
+        phase: context.state.phase,
+        currentTask: context.state.currentTask,
+        nextAction: context.state.nextAction,
+        lastFailureSummary: context.state.lastFailureSummary ?? null,
+      }
+    : { phase: 'none', currentTask: null, nextAction: null, lastFailureSummary: null };
+
+  return [
+    'You are a continuation stage classifier for an already-active OPENAI-Ralph-codex loop.',
+    'Choose exactly one stage for the user message:',
+    '- ignore',
+    '- plan',
+    '- run',
+    '- verify',
+    '- resume',
+    '- status',
+    'Important rules:',
+    '- Assume the user is still working inside the current Ralph loop unless the new message is clearly unrelated.',
+    '- Prefer status when the safest next step is to inspect the current loop state before acting.',
+    '- Support multilingual prompts.',
+    'Return JSON only with this exact shape:',
+    '{"stage":"ignore|plan|run|verify|resume|status","reason":"short explanation"}',
+    '',
+    `Current loop state: ${JSON.stringify(stateSummary)}`,
+    `User prompt: ${JSON.stringify(context.promptText)}`,
+    '',
+    'Do not use tools.',
+  ].join('\n');
+}
+
+export function isLoopSessionLatched(state) {
+  if (!state) {
+    return false;
+  }
+  if (typeof state.loopSession?.active === 'boolean') {
+    return state.loopSession.active;
+  }
+  return ['planned', 'running', 'blocked'].includes(state.phase);
+}
+
+export function resolveClassifierPrompt(context) {
+  return isLoopSessionLatched(context.state)
+    ? buildContinuationClassifierPrompt(context)
+    : buildClassifierPrompt(context);
 }
 
 export function classifyHeuristically(context) {
@@ -442,6 +495,36 @@ async function readJsonPath(projectRoot, name) {
   return readJson(path.join(projectRoot, '.ralph', name));
 }
 
+async function writeJsonPath(projectRoot, name, data) {
+  await writeFile(
+    path.join(projectRoot, '.ralph', name),
+    JSON.stringify(data, null, 2) + '\n',
+    'utf8',
+  );
+}
+
+async function persistLoopSession(projectRoot, state, decision, promptText) {
+  const updatedAt = new Date().toISOString();
+  const routingMode = isLoopSessionLatched(state) ? 'latched' : 'full';
+  const next = {
+    ...state,
+    loopSession: {
+      ...(state.loopSession ?? {}),
+      active: ['planned', 'running', 'blocked'].includes(state.phase),
+      enteredAt:
+        state.loopSession?.enteredAt ??
+        (['planned', 'running', 'blocked'].includes(state.phase) ? updatedAt : null),
+      lastRoutedAt: updatedAt,
+      lastPromptHash: hashPrompt(promptText),
+      lastStage: decision.stage,
+      lastDecisionReason: decision.reason,
+      lastTaskId: state.currentTask ?? null,
+      routingMode,
+    },
+  };
+  await writeJsonPath(projectRoot, 'state.json', next);
+}
+
 async function runRalphCommand(projectRoot, args) {
   const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'ralph-cli.mjs');
   await new Promise((resolve, reject) => {
@@ -519,6 +602,15 @@ function resolveCodexCommand() {
 
 function buildShellCommand(command, args) {
   return [command, ...args].map(quoteForShell).join(' ');
+}
+
+function hashPrompt(promptText) {
+  const normalized = promptText.replace(/\s+/g, ' ').trim().toLowerCase();
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
 }
 
 function quoteForShell(value) {

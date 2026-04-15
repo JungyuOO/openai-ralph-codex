@@ -43,6 +43,18 @@ describe('runStatus', () => {
           currentTask: 'T001',
           lastStatus: 'blocked T001: 3 files exceed limit 2',
           retryCount: 0,
+          lastFailureKind: 'context_overflow',
+          lastFailureSummary: '3 files exceed limit 2',
+          loopSession: {
+            active: true,
+            enteredAt: '2026-01-01T00:00:00.000Z',
+            lastRoutedAt: '2026-01-01T00:00:00.000Z',
+            lastPromptHash: 'deadbeef',
+            lastStage: 'resume',
+            lastDecisionReason: 'continuing the existing Ralph loop',
+            lastTaskId: 'T001',
+            routingMode: 'latched',
+          },
           nextAction:
             'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `ralph plan`',
           updatedAt: '2026-01-01T00:00:00.000Z',
@@ -91,6 +103,8 @@ describe('runStatus', () => {
     expect(output).toContain('Current task details');
     expect(output).toContain('split this task before continuing');
     expect(output).toContain('The current task is blocked by the context budget.');
+    expect(output).toContain('last failure:  3 files exceed limit 2');
+    expect(output).toContain('loop session:  active (latched, stage=resume)');
     expect(errors).toEqual([]);
   });
 

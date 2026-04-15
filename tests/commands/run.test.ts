@@ -78,6 +78,9 @@ describe('runRun', () => {
     expect(state.currentTask).toBeNull();
     expect(state.lastStatus).toBe('completed T001');
     expect(state.nextAction).toBe('all tasks done');
+    expect(state.lastFailureKind).toBeNull();
+    expect(state.lastFailureSummary).toBeNull();
+    expect(state.loopSession.active).toBe(false);
     expect(progress).toContain('completed T001');
     expect(await fileExists(verifyMarker)).toBe(true);
     const evidence = await readEvidenceFiles('T001');
@@ -111,6 +114,10 @@ describe('runRun', () => {
     expect(state.retryCount).toBe(1);
     expect(state.lastStatus).toContain('retry 1/2');
     expect(state.nextAction).toContain('re-run `ralph run`');
+    expect(state.lastFailureKind).toBe('verification_failure');
+    expect(state.lastFailureSummary).toContain('verification failed');
+    expect(state.loopSession.active).toBe(true);
+    expect(graph.tasks[0].lastFailure?.kind).toBe('verification_failure');
     expect(progress).toContain('retry queued for T001');
     expect(await fileExists(failedMarker)).toBe(true);
     expect(await fileExists(skippedMarker)).toBe(false);
@@ -142,6 +149,10 @@ describe('runRun', () => {
     expect(state.retryCount).toBe(2);
     expect(state.lastStatus).toContain('failed T001: runner exit 1');
     expect(state.nextAction).toContain('recovery policy exhausted (2 attempts)');
+    expect(state.lastFailureKind).toBe('code_bug');
+    expect(state.lastFailureSummary).toContain('runner exit 1');
+    expect(state.loopSession.active).toBe(true);
+    expect(graph.tasks[0].lastFailure?.kind).toBe('code_bug');
     expect(progress).toContain('failed T001 after 2 attempt(s)');
     expect(await fileExists(verifyMarker)).toBe(false);
     expect(process.exitCode).toBe(1);
@@ -179,6 +190,10 @@ describe('runRun', () => {
     expect(state.currentTask).toBe('T001');
     expect(state.lastStatus).toContain('blocked T001: 3 files exceed limit 2');
     expect(state.nextAction).toContain('re-run `ralph plan`');
+    expect(state.lastFailureKind).toBe('context_overflow');
+    expect(state.lastFailureSummary).toContain('3 files exceed limit 2');
+    expect(state.loopSession.active).toBe(true);
+    expect(graph.tasks[0].lastFailure?.kind).toBe('context_overflow');
     expect(progress).toContain('blocked T001 by context budget');
     await expect(access(path.join(paths.evidenceRoot, 'T001'))).rejects.toThrow();
     expect(process.exitCode).toBe(1);

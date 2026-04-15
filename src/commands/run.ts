@@ -15,6 +15,11 @@ import { findContextBlockedTask, pickNextTask } from '../core/scheduler.js';
 import { formatTaskContext } from '../core/task-graph.js';
 import { runCodexCli } from '../runners/codex-cli.js';
 import { runVerificationCommands } from '../core/verify-runner.js';
+import {
+  fingerprintContextBudgetFailure,
+  fingerprintRunnerFailure,
+  fingerprintVerificationFailure,
+} from '../core/failure-fingerprint.js';
 
 export interface RunCommandOptions {
   cwd?: string;
@@ -69,6 +74,8 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
       currentTask: next.id,
       lastStatus: `running ${next.id}`,
       nextAction: `awaiting runner result for ${next.id}`,
+      lastFailureKind: next.lastFailure?.kind ?? null,
+      lastFailureSummary: next.lastFailure?.summary ?? null,
     },
     baseState,
   );
@@ -133,12 +140,19 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
       const reason = failed
         ? `verify failed: \`${failed.command}\` (exit ${failed.exitCode})`
         : 'verify failed';
+      const fingerprint = failed
+        ? fingerprintVerificationFailure({
+            result: failed,
+            evidencePath: evidenceDir,
+          })
+        : undefined;
       await handleTaskFailure({
         task: next,
         graph,
         paths: p,
         config,
         reason,
+        fingerprint,
       });
       return;
     }
@@ -146,6 +160,7 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
 
   next.status = 'done';
   next.retryCount = 0;
+  next.lastFailure = null;
   await writeJson(p.tasks, graph);
   const following = pickNextTask(graph, config.context);
   const contextBlocked = findContextBlockedTask(graph, config.context);
@@ -162,6 +177,8 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
           ? `completed ${next.id}; unresolved work remains`
           : `completed ${next.id}`,
       retryCount: 0,
+      lastFailureKind: null,
+      lastFailureSummary: null,
       nextAction: following
         ? `start task ${following.id}: ${following.title}`
         : contextBlocked
@@ -185,6 +202,7 @@ interface FailureInput {
   paths: RalphPaths;
   config: Config;
   reason: string;
+  fingerprint?: Task['lastFailure'];
   stderr?: string;
 }
 
@@ -196,10 +214,12 @@ async function handleContextBudgetBlock(input: {
 }): Promise<void> {
   const { task, graph, paths, config } = input;
   task.status = 'blocked';
+  const reason = contextBudgetReason(task, config);
+  const fingerprint = fingerprintContextBudgetFailure(reason);
+  task.lastFailure = fingerprint;
   await writeJson(paths.tasks, graph);
 
   const afterState = await loadState(paths.state);
-  const reason = contextBudgetReason(task, config);
   await saveState(
     paths.state,
     {
@@ -207,6 +227,8 @@ async function handleContextBudgetBlock(input: {
       currentTask: task.id,
       lastStatus: `blocked ${task.id}: ${reason}`,
       retryCount: task.retryCount,
+      lastFailureKind: fingerprint.kind,
+      lastFailureSummary: fingerprint.summary,
       nextAction:
         `split ${task.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, ` +
         'then re-run `ralph plan`',
@@ -222,8 +244,14 @@ async function handleContextBudgetBlock(input: {
 }
 
 async function handleTaskFailure(input: FailureInput): Promise<void> {
-  const { task, graph, paths, config, reason, stderr } = input;
+  const { task, graph, paths, config, reason, fingerprint, stderr } = input;
   task.retryCount += 1;
+  task.lastFailure =
+    fingerprint ??
+    fingerprintRunnerFailure({
+      reason,
+      stderr,
+    });
   const max = config.recovery.max_retries_per_task;
   const canRetry = task.retryCount <= max;
 
@@ -239,6 +267,8 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
         currentTask: task.id,
         lastStatus: `retry ${task.retryCount}/${max} ??${reason}`,
         retryCount: task.retryCount,
+        lastFailureKind: task.lastFailure.kind,
+        lastFailureSummary: task.lastFailure.summary,
         nextAction: `re-run \`ralph run\` to retry ${task.id}`,
       },
       afterState,
@@ -256,6 +286,8 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
         currentTask: task.id,
         lastStatus: `failed ${task.id}: ${reason}`,
         retryCount: task.retryCount,
+        lastFailureKind: task.lastFailure.kind,
+        lastFailureSummary: task.lastFailure.summary,
         nextAction: `diagnose ${task.id}; recovery policy exhausted (${task.retryCount} attempts)`,
       },
       afterState,
@@ -280,6 +312,9 @@ function buildPrompt(task: Task): string {
     `Task: ${task.id} ??${task.title}`,
     task.description ? `Description: ${task.description}` : '',
     ...formatTaskContext(task),
+    task.lastFailure
+      ? `Recent failure to avoid repeating: [${task.lastFailure.kind}] ${task.lastFailure.summary}`
+      : '',
     '',
     'Implement this task in the current repository.',
     'Keep changes minimal and surgical.',

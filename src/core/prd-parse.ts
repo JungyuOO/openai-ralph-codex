@@ -17,6 +17,7 @@ export function extractTasksFromPrd(prd: string): Task[] {
     estimatedLoad: 0,
     crossLayer: false,
     splitRecommended: false,
+    lastFailure: null,
   }));
 }
 

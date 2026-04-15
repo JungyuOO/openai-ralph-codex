@@ -9,7 +9,7 @@ import {
   writeTextUtf8,
 } from '../utils/fs.js';
 import { ConfigSchema } from '../schemas/config.js';
-import { StateSchema, type State } from '../schemas/state.js';
+import { deriveLoopSession, StateSchema, type State } from '../schemas/state.js';
 import { type TaskGraph } from '../schemas/tasks.js';
 import { countSplitRecommendedTasks, planTaskGraph } from '../core/planner.js';
 
@@ -51,6 +51,7 @@ export async function runPlan(options: PlanOptions = {}): Promise<void> {
   const currentState = StateSchema.parse(await readJson<unknown>(p.state));
   const nextTask = graph.tasks[0];
   const splitRecommended = countSplitRecommendedTasks(graph);
+  const updatedAt = new Date().toISOString();
   const updatedState: State = {
     ...currentState,
     phase: 'planned',
@@ -60,7 +61,15 @@ export async function runPlan(options: PlanOptions = {}): Promise<void> {
     nextAction: nextTask
       ? `start task ${nextTask.id}: ${nextTask.title}`
       : 'no tasks generated ??revise .ralph/prd.md and re-run `ralph plan`',
-    updatedAt: new Date().toISOString(),
+    updatedAt,
+    loopSession: deriveLoopSession(
+      currentState.loopSession,
+      'planned',
+      nextTask?.id ?? null,
+      updatedAt,
+    ),
+    lastFailureKind: null,
+    lastFailureSummary: null,
   };
   await writeJson(p.state, updatedState);
 

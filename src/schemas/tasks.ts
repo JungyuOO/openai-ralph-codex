@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FailureFingerprintSchema } from './failure.js';
 
 export const TaskStatusSchema = z.enum([
   'pending',
@@ -20,6 +21,7 @@ export const TaskSchema = z.object({
   estimatedLoad: z.number().min(0).max(1).default(0),
   crossLayer: z.boolean().default(false),
   splitRecommended: z.boolean().default(false),
+  lastFailure: FailureFingerprintSchema.nullable().default(null),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
