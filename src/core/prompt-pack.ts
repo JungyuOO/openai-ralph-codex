@@ -13,6 +13,8 @@ export function buildPromptPack(
     | 'id'
     | 'title'
     | 'description'
+    | 'acceptanceCriteria'
+    | 'verificationHints'
     | 'contextFiles'
     | 'estimatedLoad'
     | 'crossLayer'
@@ -34,6 +36,11 @@ export function buildPromptPack(
     `title: ${normalize(task.title)}`,
     task.description ? `description: ${normalize(task.description)}` : '',
     '',
+    '[ACCEPTANCE_CRITERIA]',
+    ...(task.acceptanceCriteria.length > 0
+      ? task.acceptanceCriteria.map((criterion) => `- ${normalize(criterion)}`)
+      : ['- Match the task title intent and keep the result verifiable.']),
+    '',
     '[SCOPE]',
     task.contextFiles.length > 0
       ? `primary_files: ${task.contextFiles.join(', ')}`
@@ -54,8 +61,19 @@ export function buildPromptPack(
       ]
     : [];
 
+  const verificationHints =
+    task.verificationHints.commands.length > 0 || task.verificationHints.notes.length > 0
+      ? [
+          '[VERIFICATION_HINTS]',
+          ...task.verificationHints.commands.map((command) => `command: ${command}`),
+          ...task.verificationHints.notes.map((note) => `note: ${normalize(note)}`),
+        ]
+      : [];
+
   const prompt = [
     ...taskContract,
+    '',
+    ...verificationHints,
     iterationDelta.length > 0 ? '' : '',
     ...iterationDelta,
     '',
@@ -68,7 +86,7 @@ export function buildPromptPack(
   return {
     stableRules,
     taskContract: taskContract.filter((line) => line !== ''),
-    iterationDelta: iterationDelta.filter((line) => line !== ''),
+    iterationDelta: [...verificationHints, ...iterationDelta].filter((line) => line !== ''),
     prompt,
   };
 }

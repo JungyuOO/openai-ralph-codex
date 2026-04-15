@@ -10,6 +10,11 @@ export function extractTasksFromPrd(prd: string): Task[] {
     id: `T${String(i + 1).padStart(3, '0')}`,
     title: line,
     description: '',
+    acceptanceCriteria: [line],
+    verificationHints: {
+      commands: [],
+      notes: [],
+    },
     dependsOn: [],
     status: 'pending' as const,
     retryCount: 0,

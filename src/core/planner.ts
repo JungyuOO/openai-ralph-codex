@@ -1,6 +1,7 @@
 import type { ContextConfig } from '../schemas/config.js';
 import { TaskGraphSchema, type TaskGraph } from '../schemas/tasks.js';
 import { extractTasksFromPrd } from './prd-parse.js';
+import { compileTaskContract } from './task-contract.js';
 import { assessTaskContext } from './task-graph.js';
 
 export interface PlanTaskGraphOptions {
@@ -13,6 +14,7 @@ export interface PlanTaskGraphOptions {
 export function planTaskGraph(options: PlanTaskGraphOptions): TaskGraph {
   const tasks = extractTasksFromPrd(options.prdText).map((task) => ({
     ...task,
+    ...compileTaskContract(task),
     ...assessTaskContext(task, options.context, options.contextMapText),
   }));
 

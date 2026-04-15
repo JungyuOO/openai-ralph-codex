@@ -23,6 +23,9 @@ describe('planTaskGraph', () => {
       'src/core/verify-runner.ts',
       'tests/commands/run.test.ts',
     ]);
+    expect(graph.tasks[0].acceptanceCriteria).toEqual([
+      'Update `src/commands/run.ts`, `src/core/verify-runner.ts`, and `tests/commands/run.test.ts`',
+    ]);
     expect(graph.tasks[0].crossLayer).toBe(true);
     expect(graph.tasks[0].estimatedLoad).toBeGreaterThan(0.4);
     expect(graph.tasks[0].splitRecommended).toBe(true);
@@ -46,5 +49,6 @@ describe('planTaskGraph', () => {
     expect(graph.tasks[0].contextFiles).toContain('src/commands/');
     expect(graph.tasks[0].estimatedLoad).toBeGreaterThan(0);
     expect(graph.tasks[0].splitRecommended).toBe(false);
+    expect(graph.tasks[0].acceptanceCriteria).toEqual(['Add a command status summary']);
   });
 });

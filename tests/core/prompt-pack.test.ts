@@ -7,6 +7,11 @@ describe('buildPromptPack', () => {
       id: 'T001',
       title: 'Implement the scheduler update',
       description: 'Update the scheduler to prefer narrower runnable tasks first.',
+      acceptanceCriteria: ['Scheduler picks the narrowest runnable task first.'],
+      verificationHints: {
+        commands: ['npm test'],
+        notes: ['Confirm the scheduler behavior with a focused regression test.'],
+      },
       contextFiles: ['src/core/scheduler.ts', 'tests/core/scheduler.test.ts'],
       estimatedLoad: 0.34,
       crossLayer: false,
@@ -15,6 +20,10 @@ describe('buildPromptPack', () => {
     });
 
     expect(pack.prompt).toContain('[TASK]');
+    expect(pack.prompt).toContain('[ACCEPTANCE_CRITERIA]');
+    expect(pack.prompt).toContain('Scheduler picks the narrowest runnable task first.');
+    expect(pack.prompt).toContain('[VERIFICATION_HINTS]');
+    expect(pack.prompt).toContain('command: npm test');
     expect(pack.prompt).toContain('primary_files: src/core/scheduler.ts, tests/core/scheduler.test.ts');
     expect(pack.prompt).toContain('[EXECUTION_RULES]');
     expect(pack.prompt).not.toContain('[RECENT_FAILURE]');
@@ -26,6 +35,11 @@ describe('buildPromptPack', () => {
       id: 'T002',
       title: 'Fix verification failure',
       description: '',
+      acceptanceCriteria: ['The verification command passes cleanly.'],
+      verificationHints: {
+        commands: ['npm test'],
+        notes: [],
+      },
       contextFiles: ['src/commands/run.ts'],
       estimatedLoad: 0.21,
       crossLayer: false,

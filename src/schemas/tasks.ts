@@ -10,10 +10,18 @@ export const TaskStatusSchema = z.enum([
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 
+export const VerificationHintsSchema = z.object({
+  commands: z.array(z.string()).default([]),
+  notes: z.array(z.string()).default([]),
+});
+export type VerificationHints = z.infer<typeof VerificationHintsSchema>;
+
 export const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string().default(''),
+  acceptanceCriteria: z.array(z.string()).default([]),
+  verificationHints: VerificationHintsSchema.default({}),
   dependsOn: z.array(z.string()).default([]),
   status: TaskStatusSchema.default('pending'),
   retryCount: z.number().int().nonnegative().default(0),
