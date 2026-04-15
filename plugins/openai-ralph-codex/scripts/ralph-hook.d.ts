@@ -19,7 +19,7 @@ export interface RalphRouteContext {
 export interface RalphRouteDecision {
   stage: RalphRouteStage;
   reason: string;
-  source: 'classifier' | 'heuristic' | 'guard';
+  source: 'classifier' | 'guard';
 }
 
 export function runHook(mode?: string): Promise<string>;

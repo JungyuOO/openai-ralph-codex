@@ -86,32 +86,30 @@ export async function runHook(mode = 'user-prompt') {
 export async function determineStage(context, options = {}) {
   const mode = options.mode ?? process.env.RALPH_ROUTER_MODE ?? 'auto';
 
-  if (mode !== 'heuristic') {
-    const classified = await classifyWithCodex(context);
-    if (classified) {
-      if (classified.stage === 'bootstrap' && options.allowBootstrap === false) {
-        return {
-          stage: classifyHeuristically({ ...context, hasState: true }),
-          reason: 'bootstrap already completed for this hook turn',
-          source: 'guard',
-        };
-      }
-      return classified;
-    }
+  if (mode === 'heuristic') {
+    return {
+      stage: 'ignore',
+      reason: 'heuristic routing has been removed; Codex stage classifier is required',
+      source: 'classifier',
+    };
+  }
 
-    if (mode === 'classifier') {
+  const classified = await classifyWithCodex(context);
+  if (classified) {
+    if (classified.stage === 'bootstrap' && options.allowBootstrap === false) {
       return {
         stage: 'ignore',
-        reason: 'classifier mode enabled but no classifier decision was available',
-        source: 'classifier',
+        reason: 'bootstrap already completed for this hook turn',
+        source: 'guard',
       };
     }
+    return classified;
   }
 
   return {
-    stage: classifyHeuristically(context),
-    reason: 'heuristic fallback',
-    source: 'heuristic',
+    stage: 'ignore',
+    reason: 'no classifier decision available',
+    source: 'classifier',
   };
 }
 
@@ -219,38 +217,7 @@ export function buildClassifierPrompt(context) {
 }
 
 export function classifyHeuristically(context) {
-  const normalized = context.promptText.toLowerCase().trim();
-  if (!normalized) {
-    return 'ignore';
-  }
-
-  const scores = {
-    verify: scoreSignals(normalized, VERIFY_SIGNALS),
-    plan:
-      scoreSignals(normalized, PLAN_SIGNALS) +
-      (looksLikeLargeScopedWork(normalized) ? 1 : 0),
-    resume: scoreSignals(normalized, RESUME_SIGNALS),
-    run:
-      scoreSignals(normalized, EXECUTION_SIGNALS) +
-      (hasConcreteAnchor(normalized) ? 1 : 0),
-    status: scoreSignals(normalized, STATUS_SIGNALS),
-  };
-
-  if (!context.hasState && Math.max(scores.plan, scores.run, scores.verify, scores.resume) > 0) {
-    return 'bootstrap';
-  }
-
-  const maxScore = Math.max(...Object.values(scores));
-  if (maxScore === 0) {
-    return 'ignore';
-  }
-
-  for (const stage of ['verify', 'plan', 'resume', 'run', 'status']) {
-    if (scores[stage] === maxScore) {
-      return stage;
-    }
-  }
-
+  void context;
   return 'ignore';
 }
 
@@ -281,14 +248,8 @@ export function resolveProjectRoot(env = process.env) {
 }
 
 export function shouldBootstrapProject(text) {
-  return classifyHeuristically({
-    projectRoot: process.cwd(),
-    promptText: text,
-    state: null,
-    task: null,
-    hasState: false,
-    hasProjectPrd: false,
-  }) === 'bootstrap';
+  void text;
+  return false;
 }
 
 export async function maybeBootstrapProject(projectRoot, promptText) {
@@ -404,14 +365,8 @@ export function extractText(payload) {
 }
 
 export function matchesRalphIntent(text) {
-  return shouldBootstrapProject(text) || classifyHeuristically({
-    projectRoot: process.cwd(),
-    promptText: text,
-    state: { phase: 'planned', nextAction: '', currentTask: null, lastStatus: '' },
-    task: null,
-    hasState: true,
-    hasProjectPrd: false,
-  }) !== 'ignore';
+  void text;
+  return false;
 }
 
 export function recommendCommands(stage, state, task) {
@@ -469,217 +424,6 @@ function blockedNeedsReplan(state, task) {
 function normalizePrompt(promptText) {
   return promptText.replace(/\s+/g, ' ').trim() || 'Describe the requested work';
 }
-
-function scoreSignals(text, keywords) {
-  return keywords.reduce((score, keyword) => score + (text.includes(keyword) ? 1 : 0), 0);
-}
-
-function hasConcreteAnchor(text) {
-  return (
-    /(^|\s)(src\/|app\/|lib\/|tests\/|docs\/|packages\/|server\/)/.test(text) ||
-    /\b[a-z0-9._/-]+\.(ts|tsx|js|jsx|py|go|rs|java|kt|rb|cs|cpp|c|swift|md|json|ya?ml)\b/.test(text) ||
-    /#[0-9]+\b/.test(text) ||
-    /:[0-9]+\b/.test(text)
-  );
-}
-
-function looksLikeLargeScopedWork(text) {
-  return (
-    scoreSignals(text, LARGE_SCOPE_SIGNALS) > 0 ||
-    /(build|create|implement|add)\s+(an?\s+)?(app|feature|workflow|dashboard|system|integration)/.test(text)
-  );
-}
-
-const PLAN_SIGNALS = [
-  'ralph',
-  'prd',
-  'acceptance criteria',
-  'task graph',
-  'plan this',
-  'plan the',
-  'break this down',
-  'break it down',
-  'scope this',
-  'scope the',
-  'roadmap',
-  'user story',
-  'user stories',
-  'requirements',
-  'spec this',
-  'spec out',
-  '요구사항',
-  '명세',
-  '스펙',
-  '계획',
-  '기획',
-  '정리하자',
-  '정리해줘',
-  '정리부터',
-  '나눠줘',
-  '분해해줘',
-  '쪼개줘',
-  '작업으로 나눠',
-  '要件',
-  '仕様',
-  '計画',
-  '整理して',
-  '分解して',
-  '需求',
-  '規格',
-  '规格',
-  '计划',
-  '計劃',
-  '拆分',
-  '分解',
-  '验收标准',
-  '驗收標準',
-  'criterios de aceptación',
-  'requisitos',
-  'planifica',
-  'planifier',
-  'exigences',
-];
-
-const VERIFY_SIGNALS = [
-  'verify',
-  'verification',
-  'validate',
-  'validation',
-  'regression',
-  'test',
-  'tests',
-  'lint',
-  'typecheck',
-  'check this',
-  'check the current',
-  'pass checks',
-  '검증',
-  '확인해줘',
-  '체크해줘',
-  '검사해줘',
-  '先に検証',
-  '検証',
-  '確認して',
-  '验证',
-  '驗證',
-  '校验',
-  '校驗',
-  'verifica',
-];
-
-const RESUME_SIGNALS = [
-  'resume',
-  'continue',
-  'pick up',
-  'blocked',
-  'stuck',
-  'retry',
-  'unblock',
-  "what's next",
-  'what is next',
-  'where did we leave off',
-  '이어서',
-  '이어서 하자',
-  '이어서 해줘',
-  '막힌',
-  '막혀',
-  '멈춘 작업',
-  '계속하자',
-  '계속해줘',
-  '다음 뭐해',
-  '続けよう',
-  '続けて',
-  '止まっていた',
-  '再開',
-  '继续',
-  '繼續',
-  '接着',
-  '接著',
-  '卡住了',
-  'bloqueado',
-];
-
-const EXECUTION_SIGNALS = [
-  'implement',
-  'build',
-  'fix',
-  'write code',
-  'run the next task',
-  'execute',
-  'add ',
-  'create ',
-  'update ',
-  'refactor ',
-  'ship ',
-  'work on ',
-  'tackle ',
-  '구현',
-  '만들어',
-  '만들자',
-  '구현해줘',
-  '추가해줘',
-  '업데이트해줘',
-  '고쳐줘',
-  '수정해줘',
-  '진행해',
-  '실행해',
-  '作って',
-  '実装',
-  '修正して',
-  '進めて',
-  '做这个',
-  '实现',
-  '修复',
-  '修正',
-  '继续做',
-  'implementar',
-  'corrige',
-  'corrigir',
-];
-
-const STATUS_SIGNALS = [
-  'status',
-  'state',
-  'what is happening',
-  'what should happen next',
-  'current task',
-  '현재 상태',
-  '상태부터',
-  '상태를 봐',
-  '지금 상태',
-  '状態',
-  '今の状態',
-  '当前状态',
-  '現在狀態',
-];
-
-const LARGE_SCOPE_SIGNALS = [
-  'feature',
-  'authentication',
-  'login',
-  'password reset',
-  'dashboard',
-  'migration',
-  'workflow',
-  'integration',
-  'service',
-  'api',
-  'system',
-  '기능',
-  '인증',
-  '대시보드',
-  '마이그레이션',
-  '서비스',
-  '시스템',
-  '機能',
-  '認証',
-  'ダッシュボード',
-  '迁移',
-  '遷移',
-  '认证',
-  '認證',
-  'servicio',
-];
 
 async function readJson(file) {
   try {

@@ -21,6 +21,14 @@ let hookModule: {
     hasState: boolean;
     hasProjectPrd: boolean;
   }) => string;
+  classifyWithCodex: (context: {
+    projectRoot: string;
+    promptText: string;
+    state: { phase?: string; nextAction?: string } | null;
+    task: { id: string; status: string; splitRecommended?: boolean } | null;
+    hasState: boolean;
+    hasProjectPrd: boolean;
+  }) => Promise<{ stage: string; reason: string; source: string } | null>;
   determineStage: (
     context: {
       projectRoot: string;
@@ -49,64 +57,22 @@ beforeAll(async () => {
 });
 
 describe('ralph plugin stage classifier', () => {
-  test('heuristically detects multilingual planning / execution / verify / resume prompts', () => {
+  test('legacy keyword helpers no longer trigger Ralph routing', () => {
     expect(
       hookModule.classifyHeuristically({
         projectRoot: '.',
-        promptText: 'Please plan this PRD and resume blocked work',
+        promptText: '¿ä±¸»çÇ× Á¤¸®ÇÏ°í ÀÌ¾î¼­ ÁøÇàÇØÁà',
         state: { phase: 'planned' },
         task: null,
         hasState: true,
-        hasProjectPrd: false,
-      }),
-    ).toBe('plan');
-
-    expect(
-      hookModule.classifyHeuristically({
-        projectRoot: '.',
-        promptText: 'Just tell me a joke',
-        state: null,
-        task: null,
-        hasState: false,
         hasProjectPrd: false,
       }),
     ).toBe('ignore');
-
-    expect(
-      hookModule.classifyHeuristically({
-        projectRoot: '.',
-        promptText: 'ê²€ì¦ë¶€í„° í•˜ê³  ì§„í–‰í•˜ìž',
-        state: { phase: 'running' },
-        task: null,
-        hasState: true,
-        hasProjectPrd: false,
-      }),
-    ).toBe('verify');
-
-    expect(
-      hookModule.classifyHeuristically({
-        projectRoot: '.',
-        promptText: 'ã“ã®æ©Ÿèƒ½ã®è¦ä»¶ã‚’æ•´ç†ã—ã¦ã‚¿ã‚¹ã‚¯ã«åˆ†è§£ã—ã¦',
-        state: { phase: 'planned' },
-        task: null,
-        hasState: true,
-        hasProjectPrd: false,
-      }),
-    ).toBe('plan');
-
-    expect(
-      hookModule.classifyHeuristically({
-        projectRoot: '.',
-        promptText: 'ç»§ç»­å¡ä½çš„å·¥ä½œå¹¶å‘Šè¯‰æˆ‘ä¸‹ä¸€æ­¥',
-        state: { phase: 'blocked', nextAction: 're-run `ralph plan`' },
-        task: { id: 'T001', status: 'blocked', splitRecommended: true },
-        hasState: true,
-        hasProjectPrd: false,
-      }),
-    ).toBe('resume');
+    expect(hookModule.shouldBootstrapProject('PRD ¸¸µé°í ÀÛ¾÷ ³ª´²Áà')).toBe(false);
+    expect(hookModule.matchesRalphIntent('°è¼ÓÇØÁà')).toBe(false);
   });
 
-  test('chooses bootstrap when no Ralph state exists yet', async () => {
+  test('returns ignore when heuristic mode is requested', async () => {
     const decision = await hookModule.determineStage(
       {
         projectRoot: '.',
@@ -118,10 +84,15 @@ describe('ralph plugin stage classifier', () => {
       },
       { mode: 'heuristic' },
     );
-    expect(decision.stage).toBe('bootstrap');
+
+    expect(decision).toMatchObject({
+      stage: 'ignore',
+      source: 'classifier',
+    });
+    expect(decision.reason).toContain('heuristic routing has been removed');
   });
 
-  test('falls back heuristically in auto mode when the classifier is unavailable', async () => {
+  test('returns ignore when the classifier is unavailable', async () => {
     const previous = process.env.RALPH_DISABLE_CLASSIFIER;
     process.env.RALPH_DISABLE_CLASSIFIER = '1';
 
@@ -139,9 +110,10 @@ describe('ralph plugin stage classifier', () => {
       );
 
       expect(decision).toMatchObject({
-        stage: 'bootstrap',
-        source: 'heuristic',
+        stage: 'ignore',
+        source: 'classifier',
       });
+      expect(decision.reason).toContain('no classifier decision');
     } finally {
       if (previous === undefined) {
         delete process.env.RALPH_DISABLE_CLASSIFIER;
@@ -151,28 +123,21 @@ describe('ralph plugin stage classifier', () => {
     }
   });
 
-  test('does not fall back heuristically in classifier-only mode', async () => {
+  test('classifier can be explicitly disabled without crashing', async () => {
     const previous = process.env.RALPH_DISABLE_CLASSIFIER;
     process.env.RALPH_DISABLE_CLASSIFIER = '1';
 
     try {
-      const decision = await hookModule.determineStage(
-        {
+      await expect(
+        hookModule.classifyWithCodex({
           projectRoot: '.',
-          promptText: 'Create a PRD and break this feature down',
-          state: null,
+          promptText: 'continue the blocked task',
+          state: { phase: 'blocked' },
           task: null,
-          hasState: false,
-          hasProjectPrd: false,
-        },
-        { mode: 'classifier' },
-      );
-
-      expect(decision).toMatchObject({
-        stage: 'ignore',
-        source: 'classifier',
-      });
-      expect(decision.reason).toContain('classifier mode enabled');
+          hasState: true,
+          hasProjectPrd: true,
+        }),
+      ).resolves.toBeNull();
     } finally {
       if (previous === undefined) {
         delete process.env.RALPH_DISABLE_CLASSIFIER;
