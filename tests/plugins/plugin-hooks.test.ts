@@ -121,6 +121,67 @@ describe('ralph plugin stage classifier', () => {
     expect(decision.stage).toBe('bootstrap');
   });
 
+  test('falls back heuristically in auto mode when the classifier is unavailable', async () => {
+    const previous = process.env.RALPH_DISABLE_CLASSIFIER;
+    process.env.RALPH_DISABLE_CLASSIFIER = '1';
+
+    try {
+      const decision = await hookModule.determineStage(
+        {
+          projectRoot: '.',
+          promptText: 'Create a PRD and break this feature down',
+          state: null,
+          task: null,
+          hasState: false,
+          hasProjectPrd: false,
+        },
+        { mode: 'auto' },
+      );
+
+      expect(decision).toMatchObject({
+        stage: 'bootstrap',
+        source: 'heuristic',
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.RALPH_DISABLE_CLASSIFIER;
+      } else {
+        process.env.RALPH_DISABLE_CLASSIFIER = previous;
+      }
+    }
+  });
+
+  test('does not fall back heuristically in classifier-only mode', async () => {
+    const previous = process.env.RALPH_DISABLE_CLASSIFIER;
+    process.env.RALPH_DISABLE_CLASSIFIER = '1';
+
+    try {
+      const decision = await hookModule.determineStage(
+        {
+          projectRoot: '.',
+          promptText: 'Create a PRD and break this feature down',
+          state: null,
+          task: null,
+          hasState: false,
+          hasProjectPrd: false,
+        },
+        { mode: 'classifier' },
+      );
+
+      expect(decision).toMatchObject({
+        stage: 'ignore',
+        source: 'classifier',
+      });
+      expect(decision.reason).toContain('classifier mode enabled');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.RALPH_DISABLE_CLASSIFIER;
+      } else {
+        process.env.RALPH_DISABLE_CLASSIFIER = previous;
+      }
+    }
+  });
+
   test('builds classifier prompt and routing message', () => {
     const classifierPrompt = hookModule.buildClassifierPrompt({
       projectRoot: '.',

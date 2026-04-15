@@ -98,6 +98,14 @@ export async function determineStage(context, options = {}) {
       }
       return classified;
     }
+
+    if (mode === 'classifier') {
+      return {
+        stage: 'ignore',
+        reason: 'classifier mode enabled but no classifier decision was available',
+        source: 'classifier',
+      };
+    }
   }
 
   return {
