@@ -22,6 +22,7 @@ import {
   loadDistilledMemory,
   renderDistilledMemory,
 } from '../core/distilled-memory.js';
+import { buildSplitProposal, upsertSplitProposal } from '../core/split-proposal.js';
 import {
   fingerprintContextBudgetFailure,
   fingerprintRunnerFailure,
@@ -237,6 +238,10 @@ async function handleContextBudgetBlock(input: {
   const fingerprint = fingerprintContextBudgetFailure(reason);
   task.lastFailure = fingerprint;
   await writeJson(paths.tasks, graph);
+  await upsertSplitProposal(
+    paths.splitProposals,
+    buildSplitProposal(task, 'context-budget', reason),
+  );
 
   const afterState = await loadState(paths.state);
   await saveState(
@@ -249,7 +254,7 @@ async function handleContextBudgetBlock(input: {
       lastFailureKind: fingerprint.kind,
       lastFailureSummary: fingerprint.summary,
       nextAction:
-        `split ${task.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, ` +
+        `review .ralph/split-proposals.json, split ${task.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, ` +
         'then re-run `ralph plan`',
     },
     afterState,
@@ -308,6 +313,12 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
     );
     console.error(`RETRY ${task.id} (${task.retryCount}/${max}) ??${reason}`);
   } else {
+    if (config.recovery.split_on_repeated_failure) {
+      await upsertSplitProposal(
+        paths.splitProposals,
+        buildSplitProposal(task, 'repeated-failure', task.lastFailure.summary),
+      );
+    }
     await saveState(
       paths.state,
       {
@@ -317,7 +328,9 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
         retryCount: task.retryCount,
         lastFailureKind: task.lastFailure.kind,
         lastFailureSummary: task.lastFailure.summary,
-        nextAction: `diagnose ${task.id}; recovery policy exhausted (${task.retryCount} attempts)`,
+        nextAction: config.recovery.split_on_repeated_failure
+          ? `review .ralph/split-proposals.json, split or diagnose ${task.id}; recovery policy exhausted (${task.retryCount} attempts)`
+          : `diagnose ${task.id}; recovery policy exhausted (${task.retryCount} attempts)`,
       },
       afterState,
     );

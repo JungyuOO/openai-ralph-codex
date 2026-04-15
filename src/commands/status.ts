@@ -3,6 +3,7 @@ import { ralphPaths } from '../utils/paths.js';
 import { exists, readJson } from '../utils/fs.js';
 import { StateSchema } from '../schemas/state.js';
 import { TaskGraphSchema } from '../schemas/tasks.js';
+import { findSplitProposal } from '../core/split-proposal.js';
 
 export interface StatusOptions {
   cwd?: string;
@@ -31,6 +32,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 
   const state = parsed.data;
   const currentTask = await loadCurrentTask(p.tasks, state.currentTask);
+  const splitProposal = await findSplitProposal(p.splitProposals, state.currentTask);
 
   console.log('Ralph status');
   console.log(`  phase:         ${state.phase}`);
@@ -68,6 +70,16 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     console.log('Hint');
     console.log('  The current task is blocked by the context budget.');
     console.log('  Split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then run `ralph plan` again.');
+  }
+
+  if (splitProposal) {
+    console.log('');
+    console.log('Auto-split proposal');
+    console.log(`  source:        ${splitProposal.source}`);
+    console.log(`  reason:        ${splitProposal.reason}`);
+    for (const [index, suggestion] of splitProposal.suggestions.entries()) {
+      console.log(`  ${index + 1}. ${suggestion.title}`);
+    }
   }
 }
 

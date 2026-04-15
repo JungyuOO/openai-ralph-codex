@@ -153,6 +153,10 @@ describe('runRun', () => {
     expect(state.lastFailureSummary).toContain('runner exit 1');
     expect(state.loopSession.active).toBe(true);
     expect(graph.tasks[0].lastFailure?.kind).toBe('code_bug');
+    const failedSplitProposals = JSON.parse(await readFile(paths.splitProposals, 'utf8'));
+    expect(failedSplitProposals.proposals[0].source).toBe('repeated-failure');
+    expect(failedSplitProposals.proposals[0].taskId).toBe('T001');
+    expect(state.nextAction).toContain('.ralph/split-proposals.json');
     expect(progress).toContain('failed T001 after 2 attempt(s)');
     expect(await fileExists(verifyMarker)).toBe(false);
     expect(process.exitCode).toBe(1);
@@ -194,6 +198,11 @@ describe('runRun', () => {
     expect(state.lastFailureSummary).toContain('3 files exceed limit 2');
     expect(state.loopSession.active).toBe(true);
     expect(graph.tasks[0].lastFailure?.kind).toBe('context_overflow');
+    const contextSplitProposals = JSON.parse(await readFile(paths.splitProposals, 'utf8'));
+    expect(contextSplitProposals.proposals[0].taskId).toBe('T001');
+    expect(contextSplitProposals.proposals[0].source).toBe('context-budget');
+    expect(contextSplitProposals.proposals[0].suggestions.length).toBeGreaterThan(1);
+    expect(state.nextAction).toContain('.ralph/split-proposals.json');
     expect(progress).toContain('blocked T001 by context budget');
     await expect(access(path.join(paths.evidenceRoot, 'T001'))).rejects.toThrow();
     expect(process.exitCode).toBe(1);

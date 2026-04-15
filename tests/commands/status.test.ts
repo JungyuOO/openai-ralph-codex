@@ -95,6 +95,37 @@ describe('runStatus', () => {
       ) + '\n',
       'utf8',
     );
+    await writeFile(
+      paths.splitProposals,
+      JSON.stringify(
+        {
+          version: 1,
+          proposals: [
+            {
+              taskId: 'T001',
+              source: 'context-budget',
+              reason: '3 files exceed limit 2',
+              generatedAt: '2026-01-01T00:00:00.000Z',
+              suggestions: [
+                {
+                  title: 'Handle src/commands scope for Broad task',
+                  description: 'Focus first on src/commands/run.ts.',
+                  contextFiles: ['src/commands/run.ts'],
+                },
+                {
+                  title: 'Verify Broad task separately',
+                  description: 'Keep verification as its own follow-up step after the code change.',
+                  contextFiles: ['tests/commands/run.test.ts'],
+                },
+              ],
+            },
+          ],
+        },
+        null,
+        2,
+      ) + '\n',
+      'utf8',
+    );
 
     await runStatus({ cwd: tmp });
 
@@ -105,6 +136,8 @@ describe('runStatus', () => {
     expect(output).toContain('The current task is blocked by the context budget.');
     expect(output).toContain('last failure:  3 files exceed limit 2');
     expect(output).toContain('loop session:  active (latched, stage=resume)');
+    expect(output).toContain('Auto-split proposal');
+    expect(output).toContain('1. Handle src/commands scope for Broad task');
     expect(errors).toEqual([]);
   });
 

@@ -12,6 +12,7 @@ export interface RalphPaths {
   tasks: string;
   progress: string;
   distilledMemory: string;
+  splitProposals: string;
   evidenceRoot: string;
 }
 
@@ -33,6 +34,7 @@ export function ralphPaths(cwd: string = process.cwd()): RalphPaths {
     tasks: path.join(dir, 'tasks.json'),
     progress: path.join(dir, 'progress.md'),
     distilledMemory: path.join(dir, 'memory.json'),
+    splitProposals: path.join(dir, 'split-proposals.json'),
     evidenceRoot: path.join(dir, 'evidence'),
   };
 }
