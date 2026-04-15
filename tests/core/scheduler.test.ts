@@ -3,6 +3,7 @@ import {
   findContextBlockedTask,
   isTaskWithinContextBudget,
   pickNextTask,
+  scoreTaskPriority,
 } from '../../src/core/scheduler.js';
 import { ContextConfigSchema } from '../../src/schemas/config.js';
 import { TaskGraphSchema, type TaskGraph } from '../../src/schemas/tasks.js';
@@ -43,6 +44,26 @@ describe('pickNextTask', () => {
     expect(pickNextTask(g)?.id).toBe('T001');
   });
 
+  test('prefers narrower runnable work over broader work', () => {
+    const g = graph([
+      {
+        id: 'T001',
+        contextFiles: ['src/commands/run.ts', 'src/core/verify-runner.ts'],
+        estimatedLoad: 0.61,
+        crossLayer: true,
+        splitRecommended: true,
+      },
+      {
+        id: 'T002',
+        contextFiles: ['src/core/scheduler.ts'],
+        estimatedLoad: 0.18,
+      },
+    ]);
+
+    expect(pickNextTask(g)?.id).toBe('T002');
+    expect(scoreTaskPriority(g.tasks[1], g)).toBeGreaterThan(scoreTaskPriority(g.tasks[0], g));
+  });
+
   test('skips tasks whose deps are not done', () => {
     const g = graph([
       { id: 'T001', dependsOn: ['T002'] },
@@ -75,31 +96,56 @@ describe('pickNextTask', () => {
     expect(pickNextTask(g)?.id).toBe('T002');
   });
 
+  test('prefers runnable tasks that unlock more downstream work when cost is similar', () => {
+    const g = graph([
+      { id: 'T001', estimatedLoad: 0.2 },
+      { id: 'T002', estimatedLoad: 0.2 },
+      { id: 'T003', dependsOn: ['T001'] },
+      { id: 'T004', dependsOn: ['T001'] },
+      { id: 'T005', dependsOn: ['T002'] },
+    ]);
+
+    expect(pickNextTask(g)?.id).toBe('T001');
+    expect(scoreTaskPriority(g.tasks[0], g)).toBeGreaterThan(scoreTaskPriority(g.tasks[1], g));
+  });
+
   test('skips runnable tasks that exceed the current context budget', () => {
     const g = graph([
       {
         id: 'T001',
+        contextFiles: ['src/commands/run.ts'],
+        estimatedLoad: 0.2,
+      },
+      {
+        id: 'T002',
         contextFiles: ['src/commands/run.ts', 'src/core/verify-runner.ts'],
         estimatedLoad: 0.8,
         crossLayer: true,
       },
-      { id: 'T002', estimatedLoad: 0.2 },
+      { id: 'T003', estimatedLoad: 0.25 },
     ]);
     const context = ContextConfigSchema.parse({
       max_estimated_load: 0.5,
       split_if_files_over: 4,
       split_if_cross_layer: true,
     });
-    expect(pickNextTask(g, context)?.id).toBe('T002');
+    expect(pickNextTask(g, context)?.id).toBe('T001');
   });
 
   test('surfaces the blocked task when no runnable task fits the context budget', () => {
     const g = graph([
       {
         id: 'T001',
+        contextFiles: ['src/commands/run.ts'],
+        estimatedLoad: 0.62,
+        crossLayer: false,
+      },
+      {
+        id: 'T002',
         contextFiles: ['src/commands/run.ts', 'src/core/verify-runner.ts', 'tests/commands/run.test.ts'],
         estimatedLoad: 0.62,
         crossLayer: true,
+        splitRecommended: true,
       },
     ]);
     const context = ContextConfigSchema.parse({
