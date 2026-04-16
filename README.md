@@ -26,6 +26,19 @@ so it behaves like a real Codex product:
 - auto-split recovery proposals for broad blocked work
 - plugin + hook integration so Ralph can surface itself from normal Codex usage
 
+## Quick start
+
+```bash
+npm install -g @openai/codex openai-ralph-codex
+cd your-project
+orc enable
+orc status --project
+codex
+```
+
+Then describe the work normally. Ralph will only route inside projects that
+you explicitly enabled.
+
 ## A simple mental model
 
 Think of the product like this:
@@ -300,7 +313,7 @@ Blocked work can also produce a local split proposal so the next planning
 pass starts from a concrete breakdown instead of a blank page.
 
 ### 6. Resume
-If the loop was interrupted or a task was blocked, `ralph resume` can
+If the loop was interrupted or a task was blocked, `orc resume` can
 re-queue work once the root cause has been addressed.
 
 ## Prompt routing policy
@@ -473,6 +486,11 @@ It is not trying to be:
 - a giant general-purpose orchestration platform
 - a permanent background daemon that silently drives every task forever
 - a system that hides all execution behind nested automatic runs
+
+## Korean guide
+
+For a Korean-language explanation of the current plugin behavior and usage,
+see [README-KOR.md](README-KOR.md).
 
 ## Release notes
 
