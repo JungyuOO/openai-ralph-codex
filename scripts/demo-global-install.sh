@@ -3,8 +3,8 @@ set -euo pipefail
 
 PROMPT="${1:-Plan this feature from a PRD and start the Ralph workflow for this project.}"
 
-if ! command -v ralph >/dev/null 2>&1; then
-  echo 'Missing `ralph` in PATH. Install first: npm install -g @openai/codex openai-ralph-codex' >&2
+if ! command -v orc >/dev/null 2>&1; then
+  echo 'Missing `orc` in PATH. Install first: npm install -g @openai/codex openai-ralph-codex' >&2
   exit 1
 fi
 
@@ -20,7 +20,7 @@ export RALPH_PROJECT_ROOT="$DEMO_ROOT"
 echo "Demo project: $DEMO_ROOT"
 echo
 echo "== Plugin status =="
-ralph plugin status
+orc plugin status
 echo
 echo "== Enable project routing =="
 (cd "$DEMO_ROOT" && orc enable)

@@ -17,7 +17,7 @@ export async function runResume(options: ResumeOptions = {}): Promise<void> {
   ] as const) {
     if (!(await exists(file))) {
       console.error(`Missing ${label}: ${path.relative(cwd, file)}`);
-      console.error('Run `ralph init` and `ralph plan` first.');
+      console.error('Run `orc init` and `orc plan` first.');
       process.exitCode = 1;
       return;
     }
@@ -29,7 +29,7 @@ export async function runResume(options: ResumeOptions = {}): Promise<void> {
     if (result.mode === 'manual-retry') {
       console.log('Retry budget reset after manual unblock.');
     }
-    console.log(`Next: run \`ralph run\` to continue ${result.task.id}.`);
+    console.log(`Next: run \`orc run\` to continue ${result.task.id}.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(message);

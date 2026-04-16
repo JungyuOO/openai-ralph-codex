@@ -17,7 +17,7 @@ const cliName = resolveCliName(process.argv[1]);
 program
   .name(cliName)
   .description('Codex-native CLI harness for PRD-driven software delivery')
-  .version('0.1.0');
+  .version('0.1.5');
 
 program
   .command('enable')
@@ -64,7 +64,7 @@ program
 
 program
   .command('resume')
-  .description('Re-queue blocked or interrupted work so `ralph run` can continue')
+  .description('Re-queue blocked or interrupted work so `orc run` can continue')
   .action(async () => {
     await runResume();
   });
@@ -90,8 +90,9 @@ plugin
 program
   .command('status')
   .description('Show the current Ralph project phase and next action')
-  .action(async () => {
-    await runStatus();
+  .option('--project', 'Show whether the current project is opted into Ralph hook routing')
+  .action(async (opts: { project?: boolean }) => {
+    await runStatus({ project: opts.project });
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

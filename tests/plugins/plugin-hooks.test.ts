@@ -176,7 +176,7 @@ describe('ralph plugin stage classifier', () => {
       { id: 'T003', status: 'pending' },
     );
     expect(message).toContain('Ralph stage classifier (plan)');
-    expect(message).toContain('ralph plan');
+    expect(message).toContain('orc plan');
   });
 
   test('uses a continuation classifier prompt for active loop sessions', () => {
@@ -186,7 +186,7 @@ describe('ralph plugin stage classifier', () => {
       state: {
         phase: 'running',
         currentTask: 'T003',
-        nextAction: 're-run `ralph run` to continue T003',
+        nextAction: 're-run `orc run` to continue T003',
         loopSession: { active: true, routingMode: 'latched' },
       },
       task: { id: 'T003', status: 'pending' },
@@ -205,7 +205,7 @@ describe('ralph plugin stage classifier', () => {
     expect(hookModule.extractText({ prompt: 'resume the blocked task' })).toBe(
       'resume the blocked task',
     );
-    expect(hookModule.extractText('ralph status')).toBe('ralph status');
+    expect(hookModule.extractText('orc status')).toBe('orc status');
   });
 
   test('builds session start, post-write, and blocked resume hints', () => {
@@ -214,10 +214,10 @@ describe('ralph plugin stage classifier', () => {
         { phase: 'planned' },
         { id: 'T001', title: 'Implement verify', status: 'pending' },
       ),
-    ).toContain('Recommended next command: ralph status');
+    ).toContain('Recommended next command: orc status');
 
     expect(hookModule.buildPostWriteMessage({ phase: 'running' }, { id: 'T001' })).toContain(
-      'ralph verify',
+      'orc verify',
     );
 
     expect(
@@ -226,11 +226,11 @@ describe('ralph plugin stage classifier', () => {
         {
           phase: 'blocked',
           nextAction:
-            'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `ralph plan`',
+            'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `orc plan`',
         },
         { id: 'T001', status: 'blocked', splitRecommended: true },
       ),
-    ).toEqual(['ralph status', 'ralph plan']);
+    ).toEqual(['orc status', 'orc plan']);
   });
 
   test('creates a bootstrap PRD from a first prompt', () => {
@@ -243,8 +243,13 @@ describe('ralph plugin stage classifier', () => {
   });
 
   test('detects project-scoped activation markers before routing', async () => {
-    expect(hookModule.findEnabledProjectRoot(process.cwd())).toBeNull();
-    await expect(hookModule.readProjectActivation(process.cwd())).resolves.toBeNull();
+    const root = await mkdtemp(path.join(process.cwd(), '.tmp-hook-project-missing-'));
+    try {
+      expect(hookModule.findEnabledProjectRoot(root)).toBeNull();
+      await expect(hookModule.readProjectActivation(root)).resolves.toBeNull();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   test('finds the nearest enabled project root from nested directories', async () => {

@@ -30,7 +30,7 @@ export async function resumeExecution(paths: RalphPaths): Promise<ResumeResult> 
   const mode = classifyResume(state.phase, task);
   if (!mode) {
     throw new Error(
-      `Nothing resumable in phase \`${state.phase}\`. Use \`ralph run\` when work is already ready to continue.`,
+      `Nothing resumable in phase \`${state.phase}\`. Use \`orc run\` when work is already ready to continue.`,
     );
   }
 
@@ -49,7 +49,7 @@ export async function resumeExecution(paths: RalphPaths): Promise<ResumeResult> 
       currentTask: task.id,
       lastStatus: buildLastStatus(mode, task.id),
       retryCount: task.retryCount,
-      nextAction: `re-run \`ralph run\` to continue ${task.id}`,
+      nextAction: `re-run \`orc run\` to continue ${task.id}`,
     },
     state,
   );

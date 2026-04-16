@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readProjectActivation } from '../core/project-activation.js';
 import { ralphPaths } from '../utils/paths.js';
 import { exists, readJson } from '../utils/fs.js';
 import { StateSchema } from '../schemas/state.js';
@@ -7,16 +8,35 @@ import { findSplitProposal } from '../core/split-proposal.js';
 
 export interface StatusOptions {
   cwd?: string;
+  project?: boolean;
 }
 
 export async function runStatus(options: StatusOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const p = ralphPaths(cwd);
 
+  if (options.project) {
+    const activation = await readProjectActivation({ cwd });
+    console.log('Ralph project activation');
+    console.log(`  project root:  ${cwd}`);
+    console.log(`  enabled:       ${activation ? 'yes' : 'no'}`);
+    console.log(`  marker:        ${path.relative(cwd, p.projectActivation)}`);
+    console.log(`  state file:    ${(await exists(p.state)) ? 'present' : 'missing'}`);
+    if (activation) {
+      console.log(`  enabled at:    ${activation.enabledAt}`);
+      console.log('');
+      console.log('Next: run `orc init` to create project state, or start Codex in this repo.');
+    } else {
+      console.log('');
+      console.log('Next: run `orc enable` to opt this project into Ralph hook routing.');
+    }
+    return;
+  }
+
   if (!(await exists(p.state))) {
     console.error('Ralph project not initialized.');
     console.error(`Missing: ${path.relative(cwd, p.state)}`);
-    console.error('Run `ralph init` first.');
+    console.error('Run `orc init` first.');
     process.exitCode = 1;
     return;
   }
@@ -69,7 +89,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     console.log('');
     console.log('Hint');
     console.log('  The current task is blocked by the context budget.');
-    console.log('  Split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then run `ralph plan` again.');
+    console.log('  Split the task in `.ralph/prd.md` or relax `.ralph/config.yaml`, then run `orc plan` again.');
   }
 
   if (splitProposal) {

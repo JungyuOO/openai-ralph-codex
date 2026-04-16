@@ -26,7 +26,7 @@ describe('openai-ralph-codex plugin packaging', () => {
     };
 
     expect(pluginJson.name).toBe('openai-ralph-codex');
-    expect(pluginJson.version).toBe('0.1.0');
+    expect(pluginJson.version).toBe('0.1.5');
     expect(pluginJson.skills).toBe('./skills/');
     expect(pluginJson.hooks).toBe('./hooks.json');
     expect(pluginJson.interface.displayName).toBe('OpenAI Ralph Codex');
