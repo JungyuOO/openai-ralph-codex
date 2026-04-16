@@ -18,7 +18,7 @@ export async function runVerify(options: VerifyOptions = {}): Promise<void> {
 
   if (!(await exists(p.config))) {
     console.error(`Missing config: ${path.relative(cwd, p.config)}`);
-    console.error('Run `ralph init` first.');
+    console.error('Run `orc init` first.');
     process.exitCode = 1;
     return;
   }

@@ -161,16 +161,24 @@ npm install -g @openai/codex openai-ralph-codex
 
 Global install is designed to prepare Ralph for normal Codex usage by:
 
-- installing the `ralph` CLI
+- installing the `orc` CLI
+- keeping the legacy `ralph` CLI alias for compatibility
 - copying the plugin into `~/plugins/openai-ralph-codex`
 - updating `~/.agents/plugins/marketplace.json`
 - merging Ralph-managed entries into `~/.codex/hooks.json`
 
+After global install, opt each project in explicitly:
+
+```bash
+cd your-project
+orc enable
+```
+
 If your environment blocks postinstall:
 
 ```bash
-ralph plugin install
-ralph plugin status
+orc plugin install
+orc plugin status
 ```
 
 ## Recommended usage
@@ -182,6 +190,8 @@ codex
 ```
 
 Then just work normally.
+
+`orc` is the primary CLI name. The older `ralph` alias still works for compatibility.
 
 When the prompt looks like work that benefits from a Ralph loop, the
 installed hooks can route you toward the right entrypoint.
@@ -208,11 +218,11 @@ So the product is meant to feel like:
 If the current project does not have `.ralph/`, Ralph can bootstrap it on
 the first relevant prompt:
 
-1. `ralph init`
+1. `orc init`
 2. seed `.ralph/prd.md`
    - from `PRD.md`, `prd.md`, `docs/PRD.md`, or `docs/prd.md` if present
    - otherwise from the user's first prompt
-3. `ralph plan`
+3. `orc plan`
 4. continue with the normal loop
 
 This means Ralph can be adopted in both situations:
@@ -302,10 +312,10 @@ Current routing looks like:
 
 - initial loop entry -> Codex stage classifier
 - active loop continuation -> shorter latched continuation routing
-- PRD / planning prompts -> `ralph plan`
-- execution prompts -> `ralph run`
-- verification prompts -> `ralph verify`
-- blocked / continue prompts -> `ralph status` then `ralph resume` or `ralph plan`
+- PRD / planning prompts -> `orc plan`
+- execution prompts -> `orc run`
+- verification prompts -> `orc verify`
+- blocked / continue prompts -> `orc status` then `orc resume` or `orc plan`
 
 In short:
 
@@ -327,7 +337,7 @@ Typical Ralph path:
 2. bootstrap project-local Ralph state
 3. write or derive `.ralph/prd.md`
 4. generate `.ralph/tasks.json`
-5. route toward `ralph run`
+5. route toward `orc run`
 
 ### Example 2: existing project in the middle of work
 
@@ -341,8 +351,8 @@ Typical Ralph path:
 
 1. existing `.ralph/state.json` is loaded
 2. current blocked reason is read
-3. Ralph routes toward `ralph status`
-4. then either `ralph resume` or `ralph plan`, depending on why the task blocked
+3. Ralph routes toward `orc status`
+4. then either `orc resume` or `orc plan`, depending on why the task blocked
 
 ### Example 3: verification-heavy change
 
@@ -356,7 +366,7 @@ Typical Ralph path:
 
 1. current Ralph state is loaded
 2. intent is classified as verification
-3. route toward `ralph verify`
+3. route toward `orc verify`
 4. evidence is written under `.ralph/evidence/`
 
 ## Example prompts
@@ -387,14 +397,17 @@ These are the kinds of prompts that should naturally route into Ralph:
 
 | Command | Purpose |
 |---|---|
-| `ralph init` | Create `.ralph/` from tracked example templates |
-| `ralph plan` | Generate or regenerate the task graph from `.ralph/prd.md` |
-| `ralph run` | Execute the next runnable task |
-| `ralph verify` | Run configured verification commands only |
-| `ralph status` | Show current phase, current task, and next action |
-| `ralph resume` | Re-queue blocked or interrupted work |
-| `ralph plugin install` | Install the home-local Codex plugin packaging |
-| `ralph plugin status` | Show whether the home-local plugin is installed |
+| `orc enable` | Opt the current project into Ralph hook routing |
+| `orc disable` | Opt the current project out of Ralph hook routing |
+| `orc status --project` | Show whether the current project is opted in |
+| `orc init` | Create `.ralph/` from tracked example templates |
+| `orc plan` | Generate or regenerate the task graph from `.ralph/prd.md` |
+| `orc run` | Execute the next runnable task |
+| `orc verify` | Run configured verification commands only |
+| `orc status` | Show current phase, current task, and next action |
+| `orc resume` | Re-queue blocked or interrupted work |
+| `orc plugin install` | Install the home-local Codex plugin packaging |
+| `orc plugin status` | Show whether the home-local plugin is installed |
 
 ## Runtime files
 
@@ -463,6 +476,8 @@ It is not trying to be:
 
 ## Release notes
 
+- [v0.1.5 release notes](docs/releases/v0.1.5.md)
+- [v0.1.4 release notes](docs/releases/v0.1.4.md)
 - [v0.1.3 draft release notes](docs/releases/v0.1.3.md)
 - [v0.1.2 draft release notes](docs/releases/v0.1.2.md)
 - [v0.1.1 draft release notes](docs/releases/v0.1.1.md)

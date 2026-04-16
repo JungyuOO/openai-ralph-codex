@@ -1,6 +1,6 @@
 {
   "name": "openai-ralph-codex",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "Codex plugin packaging for the Ralph PRD-driven planning, execution, verification, and recovery loop.",
   "author": {
     "name": "JungyuOO",

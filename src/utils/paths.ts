@@ -2,6 +2,7 @@ import path from 'node:path';
 
 export interface RalphPaths {
   root: string;
+  projectActivation: string;
   config: string;
   configExample: string;
   prd: string;
@@ -24,6 +25,7 @@ export function ralphPaths(cwd: string = process.cwd()): RalphPaths {
   const dir = ralphDir(cwd);
   return {
     root: dir,
+    projectActivation: path.join(dir, 'project.json'),
     config: path.join(dir, 'config.yaml'),
     configExample: path.join(dir, 'config.example.yaml'),
     prd: path.join(dir, 'prd.md'),

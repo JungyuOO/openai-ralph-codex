@@ -45,7 +45,7 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
   ] as const) {
     if (!(await exists(file))) {
       console.error(`Missing ${label}: ${path.relative(cwd, file)}`);
-      console.error('Run `ralph init` and `ralph plan` first.');
+      console.error('Run `orc init` and `orc plan` first.');
       process.exitCode = 1;
       return;
     }
@@ -197,9 +197,9 @@ export async function runRun(options: RunCommandOptions = {}): Promise<void> {
       nextAction: following
         ? `start task ${following.id}: ${following.title}`
         : contextBlocked
-          ? `split ${contextBlocked.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run \`ralph plan\``
+          ? `split ${contextBlocked.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run \`orc plan\``
           : unresolved
-            ? `inspect ${unresolved.id} and resolve the blocked task before re-running \`ralph run\``
+            ? `inspect ${unresolved.id} and resolve the blocked task before re-running \`orc run\``
             : 'all tasks done',
     },
     afterState,
@@ -255,7 +255,7 @@ async function handleContextBudgetBlock(input: {
       lastFailureSummary: fingerprint.summary,
       nextAction:
         `review .ralph/split-proposals.json, split ${task.id} in .ralph/prd.md or relax context limits in .ralph/config.yaml, ` +
-        'then re-run `ralph plan`',
+        'then re-run `orc plan`',
     },
     afterState,
   );
@@ -298,7 +298,7 @@ async function handleTaskFailure(input: FailureInput): Promise<void> {
         retryCount: task.retryCount,
         lastFailureKind: task.lastFailure.kind,
         lastFailureSummary: task.lastFailure.summary,
-        nextAction: `re-run \`ralph run\` to retry ${task.id}`,
+        nextAction: `re-run \`orc run\` to retry ${task.id}`,
       },
       afterState,
     );

@@ -13,6 +13,10 @@ export async function runHook(mode = 'user-prompt') {
   }
 
   const projectRoot = resolveProjectRoot();
+  const activation = await readProjectActivation(projectRoot);
+  if (!activation?.enabled) {
+    return '';
+  }
   const payload = await readPayload();
   const promptText = extractText(payload);
 
@@ -297,7 +301,10 @@ export async function readPayload() {
 }
 
 export function resolveProjectRoot(env = process.env) {
-  return env.RALPH_PROJECT_ROOT || process.cwd();
+  if (env.RALPH_PROJECT_ROOT) {
+    return env.RALPH_PROJECT_ROOT;
+  }
+  return findEnabledProjectRoot(process.cwd()) ?? process.cwd();
 }
 
 export function shouldBootstrapProject(text) {
@@ -423,55 +430,51 @@ export function matchesRalphIntent(text) {
 }
 
 export function recommendCommands(stage, state, task) {
-  const initPath = ['ralph init', 'ralph plan', 'ralph status'];
   if (stage === 'bootstrap' || state.phase === 'initialized' || state.phase === 'uninitialized') {
-    return initPath;
+    return ['orc init', 'orc plan', 'orc status'];
   }
 
   if (stage === 'plan') {
     return state.phase === 'blocked'
-      ? ['ralph status', 'ralph plan']
-      : ['ralph plan', 'ralph status'];
+      ? ['orc status', 'orc plan']
+      : ['orc plan', 'orc status'];
   }
 
   if (stage === 'verify') {
-    return ['ralph verify', 'ralph status'];
+    return ['orc verify', 'orc status'];
   }
 
   if (stage === 'resume') {
     if (state.phase === 'blocked') {
       return blockedNeedsReplan(state, task)
-        ? ['ralph status', 'ralph plan']
-        : ['ralph status', 'ralph resume', 'ralph run'];
+        ? ['orc status', 'orc plan']
+        : ['orc status', 'orc resume', 'orc run'];
     }
-    return ['ralph status', 'ralph run'];
+    return ['orc status', 'orc run'];
   }
 
   if (stage === 'run') {
     if (state.phase === 'blocked') {
       return blockedNeedsReplan(state, task)
-        ? ['ralph status', 'ralph plan']
-        : ['ralph status', 'ralph resume', 'ralph run'];
+        ? ['orc status', 'orc plan']
+        : ['orc status', 'orc resume', 'orc run'];
     }
     if (state.phase === 'planned' || state.phase === 'running') {
-      return ['ralph status', 'ralph run'];
+      return ['orc status', 'orc run'];
     }
   }
 
   if (stage === 'post-write') {
     return state.phase === 'blocked'
-      ? ['ralph status', blockedNeedsReplan(state, task) ? 'ralph plan' : 'ralph resume']
-      : ['ralph status', 'ralph verify'];
+      ? ['orc status', blockedNeedsReplan(state, task) ? 'orc plan' : 'orc resume']
+      : ['orc status', 'orc verify'];
   }
 
-  return ['ralph status'];
+  return ['orc status'];
 }
 
 function blockedNeedsReplan(state, task) {
-  return (
-    /context budget|split .*config|re-run `ralph plan`/i.test(state.nextAction) ||
-    task?.splitRecommended === true
-  );
+  return /context budget|split .*config|re-run `(?:ralph|orc) plan`/i.test(state.nextAction) || task?.splitRecommended === true;
 }
 
 function normalizePrompt(promptText) {
@@ -484,6 +487,28 @@ async function readJson(file) {
   } catch {
     return null;
   }
+}
+
+export function findEnabledProjectRoot(startDir) {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    const activationPath = path.join(current, '.ralph', 'project.json');
+    if (existsSync(activationPath)) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+export async function readProjectActivation(projectRoot) {
+  const activation = await readJson(path.join(projectRoot, '.ralph', 'project.json'));
+  return activation && activation.enabled === true ? activation : null;
 }
 
 async function readCurrentTask(projectRoot, taskId) {
@@ -540,7 +565,7 @@ async function runRalphCommand(projectRoot, args) {
     child.on('error', reject);
     child.on('exit', (code) => {
       if ((code ?? 1) !== 0) {
-        reject(new Error(`ralph ${args.join(' ')} exited with code ${code ?? 1}`));
+        reject(new Error(`orc ${args.join(' ')} exited with code ${code ?? 1}`));
         return;
       }
       resolve();

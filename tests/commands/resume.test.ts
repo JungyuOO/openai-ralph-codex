@@ -48,7 +48,7 @@ describe('runResume', () => {
     expect(state.currentTask).toBe('T001');
     expect(state.retryCount).toBe(0);
     expect(state.lastStatus).toBe('resumed T001 after manual unblock');
-    expect(state.nextAction).toContain('re-run `ralph run`');
+    expect(state.nextAction).toContain('re-run `orc run`');
     expect(progress).toContain('resumed T001 (manual unblock)');
     expect(process.exitCode).toBeUndefined();
   });

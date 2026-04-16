@@ -113,7 +113,7 @@ describe('runRun', () => {
     expect(state.currentTask).toBe('T001');
     expect(state.retryCount).toBe(1);
     expect(state.lastStatus).toContain('retry 1/2');
-    expect(state.nextAction).toContain('re-run `ralph run`');
+    expect(state.nextAction).toContain('re-run `orc run`');
     expect(state.lastFailureKind).toBe('verification_failure');
     expect(state.lastFailureSummary).toContain('verification failed');
     expect(state.loopSession.active).toBe(true);
@@ -193,7 +193,7 @@ describe('runRun', () => {
     expect(state.phase).toBe('blocked');
     expect(state.currentTask).toBe('T001');
     expect(state.lastStatus).toContain('blocked T001: 3 files exceed limit 2');
-    expect(state.nextAction).toContain('re-run `ralph plan`');
+    expect(state.nextAction).toContain('re-run `orc plan`');
     expect(state.lastFailureKind).toBe('context_overflow');
     expect(state.lastFailureSummary).toContain('3 files exceed limit 2');
     expect(state.loopSession.active).toBe(true);

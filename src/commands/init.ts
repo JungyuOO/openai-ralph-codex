@@ -98,7 +98,7 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
     for (const f of skipped) console.log(`  = ${f}`);
   }
   console.log('');
-  console.log('Next: run `ralph plan` to generate the initial task graph.');
+  console.log('Next: run `orc plan` to generate the initial task graph.');
 }
 
 function bundledTemplatePaths() {

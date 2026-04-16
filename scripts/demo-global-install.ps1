@@ -4,8 +4,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Get-Command ralph -ErrorAction SilentlyContinue)) {
-  throw "Missing `ralph` in PATH. Install first: npm install -g @openai/codex openai-ralph-codex"
+if (-not (Get-Command orc -ErrorAction SilentlyContinue)) {
+  throw "Missing `orc` in PATH. Install first: npm install -g @openai/codex openai-ralph-codex"
 }
 
 $homePlugin = Join-Path $HOME "plugins\openai-ralph-codex\scripts\ralph-hook.mjs"
@@ -19,7 +19,15 @@ New-Item -ItemType Directory -Force -Path $demoRoot | Out-Null
 Write-Host "Demo project: $demoRoot"
 Write-Host ""
 Write-Host "== Plugin status =="
-ralph plugin status
+orc plugin status
+Write-Host ""
+Write-Host "== Enable project routing =="
+Push-Location $demoRoot
+try {
+  orc enable
+} finally {
+  Pop-Location
+}
 Write-Host ""
 Write-Host "== First relevant prompt =="
 $env:RALPH_PROJECT_ROOT = $demoRoot

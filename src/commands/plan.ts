@@ -28,7 +28,7 @@ export async function runPlan(options: PlanOptions = {}): Promise<void> {
   ] as const) {
     if (!(await exists(file))) {
       console.error(`Missing ${label}: ${path.relative(cwd, file)}`);
-      console.error('Run `ralph init` first.');
+      console.error('Run `orc init` first.');
       process.exitCode = 1;
       return;
     }
@@ -60,7 +60,7 @@ export async function runPlan(options: PlanOptions = {}): Promise<void> {
     retryCount: 0,
     nextAction: nextTask
       ? `start task ${nextTask.id}: ${nextTask.title}`
-      : 'no tasks generated ??revise .ralph/prd.md and re-run `ralph plan`',
+      : 'no tasks generated ??revise .ralph/prd.md and re-run `orc plan`',
     updatedAt,
     loopSession: deriveLoopSession(
       currentState.loopSession,

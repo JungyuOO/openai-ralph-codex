@@ -1,6 +1,6 @@
 {
   "name": "openai-ralph-codex",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Installable Codex plugin + CLI for PRD-driven planning, execution, verification, and recovery.",
   "type": "module",
   "license": "MIT",
@@ -35,7 +35,8 @@
     "access": "public"
   },
   "bin": {
-    "ralph": "dist/cli.js"
+    "ralph": "dist/cli.js",
+    "orc": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

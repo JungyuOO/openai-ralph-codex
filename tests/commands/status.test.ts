@@ -56,7 +56,7 @@ describe('runStatus', () => {
             routingMode: 'latched',
           },
           nextAction:
-            'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `ralph plan`',
+            'split T001 in .ralph/prd.md or relax context limits in .ralph/config.yaml, then re-run `orc plan`',
           updatedAt: '2026-01-01T00:00:00.000Z',
         },
         null,
@@ -146,5 +146,15 @@ describe('runStatus', () => {
 
     expect(errors.join('\n')).toContain('Ralph project not initialized.');
     expect(process.exitCode).toBe(1);
+  });
+
+  test('prints project activation status without requiring state files', async () => {
+    await runStatus({ cwd: tmp, project: true });
+
+    const output = logs.join('\n');
+    expect(output).toContain('Ralph project activation');
+    expect(output).toContain('enabled:       no');
+    expect(output).toContain('Next: run `orc enable`');
+    expect(errors).toEqual([]);
   });
 });

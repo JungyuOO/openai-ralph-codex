@@ -64,8 +64,8 @@ node plugins/openai-ralph-codex/scripts/ralph-cli.mjs resume
 - Verification evidence is written under `.ralph/evidence/`.
 - This plugin includes lightweight hooks that surface Ralph hints on session start, prompt submission, and after file edits.
 - The hooks now apply an auto-routing policy:
-  - PRD / planning prompts prefer `ralph plan`
-  - execution prompts prefer `ralph run`
-  - validation prompts prefer `ralph verify`
-  - blocked / continue prompts prefer `ralph status`, then `ralph resume` or `ralph plan` depending on the blocked reason
+- PRD / planning prompts prefer `orc plan`
+- execution prompts prefer `orc run`
+- validation prompts prefer `orc verify`
+- blocked / continue prompts prefer `orc status`, then `orc resume` or `orc plan` depending on the blocked reason
 - The hooks help auto-surface the Ralph workflow, but they still do not replace user-visible command invocation or a true background daemon.

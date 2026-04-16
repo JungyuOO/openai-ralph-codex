@@ -59,7 +59,7 @@ export function createInitialState(): State {
     currentTask: null,
     lastStatus: 'initialized',
     retryCount: 0,
-    nextAction: 'run `ralph plan` to generate the initial task graph',
+    nextAction: 'run `orc plan` to generate the initial task graph',
     loopSession: deriveLoopSession(undefined, 'initialized', null, updatedAt),
     lastFailureKind: null,
     lastFailureSummary: null,
