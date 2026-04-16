@@ -1,4 +1,7 @@
-﻿import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 let hookModule: {
   buildBootstrapPrd: (promptText: string) => string;
@@ -50,6 +53,8 @@ let hookModule: {
     task: { id: string; status: string; splitRecommended?: boolean } | null,
   ) => string[];
   resolveClassifierPrompt: (context: Record<string, unknown>) => string;
+  findEnabledProjectRoot: (startDir: string) => string | null;
+  readProjectActivation: (projectRoot: string) => Promise<{ enabled: boolean } | null>;
   shouldBootstrapProject: (text: string) => boolean;
 };
 
@@ -235,5 +240,31 @@ describe('ralph plugin stage classifier', () => {
     expect(prd).toContain('# Product Requirements Document');
     expect(prd).toContain('Build a PRD-driven delivery loop for this repository');
     expect(prd).toContain('## Acceptance Criteria');
+  });
+
+  test('detects project-scoped activation markers before routing', async () => {
+    expect(hookModule.findEnabledProjectRoot(process.cwd())).toBeNull();
+    await expect(hookModule.readProjectActivation(process.cwd())).resolves.toBeNull();
+  });
+
+  test('finds the nearest enabled project root from nested directories', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'ralph-hook-project-root-'));
+    const nested = path.join(root, 'src', 'feature');
+    await mkdir(path.join(root, '.ralph'), { recursive: true });
+    await mkdir(nested, { recursive: true });
+    await writeFile(
+      path.join(root, '.ralph', 'project.json'),
+      JSON.stringify({ version: 1, enabled: true }) + '\n',
+      'utf8',
+    );
+
+    try {
+      expect(hookModule.findEnabledProjectRoot(nested)).toBe(root);
+      await expect(hookModule.readProjectActivation(root)).resolves.toMatchObject({
+        enabled: true,
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

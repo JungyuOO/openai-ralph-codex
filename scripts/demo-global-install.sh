@@ -22,6 +22,9 @@ echo
 echo "== Plugin status =="
 ralph plugin status
 echo
+echo "== Enable project routing =="
+(cd "$DEMO_ROOT" && orc enable)
+echo
 echo "== First relevant prompt =="
 printf '{"user_prompt":"%s"}\n' "$PROMPT" | node "$HOME_PLUGIN" user-prompt
 echo

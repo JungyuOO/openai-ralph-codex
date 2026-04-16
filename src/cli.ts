@@ -1,5 +1,8 @@
 #!/usr/bin/env node
+import path from 'node:path';
 import { Command } from 'commander';
+import { runDisable } from './commands/disable.js';
+import { runEnable } from './commands/enable.js';
 import { runInit } from './commands/init.js';
 import { runPlan } from './commands/plan.js';
 import { runPluginInstall, runPluginStatus } from './commands/plugin.js';
@@ -9,11 +12,26 @@ import { runStatus } from './commands/status.js';
 import { runVerify } from './commands/verify.js';
 
 const program = new Command();
+const cliName = resolveCliName(process.argv[1]);
 
 program
-  .name('ralph')
+  .name(cliName)
   .description('Codex-native CLI harness for PRD-driven software delivery')
   .version('0.1.0');
+
+program
+  .command('enable')
+  .description('Opt the current project into Ralph hook routing')
+  .action(async () => {
+    await runEnable();
+  });
+
+program
+  .command('disable')
+  .description('Opt the current project out of Ralph hook routing')
+  .action(async () => {
+    await runDisable();
+  });
 
 program
   .command('init')
@@ -81,3 +99,12 @@ program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(`Error: ${message}`);
   process.exit(1);
 });
+
+function resolveCliName(argv1?: string): string {
+  if (!argv1) {
+    return 'ralph';
+  }
+
+  const ext = path.extname(argv1);
+  return path.basename(argv1, ext) || 'ralph';
+}

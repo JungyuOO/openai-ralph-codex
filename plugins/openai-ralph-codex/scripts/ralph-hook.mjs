@@ -13,6 +13,10 @@ export async function runHook(mode = 'user-prompt') {
   }
 
   const projectRoot = resolveProjectRoot();
+  const activation = await readProjectActivation(projectRoot);
+  if (!activation?.enabled) {
+    return '';
+  }
   const payload = await readPayload();
   const promptText = extractText(payload);
 
@@ -297,7 +301,10 @@ export async function readPayload() {
 }
 
 export function resolveProjectRoot(env = process.env) {
-  return env.RALPH_PROJECT_ROOT || process.cwd();
+  if (env.RALPH_PROJECT_ROOT) {
+    return env.RALPH_PROJECT_ROOT;
+  }
+  return findEnabledProjectRoot(process.cwd()) ?? process.cwd();
 }
 
 export function shouldBootstrapProject(text) {
@@ -484,6 +491,28 @@ async function readJson(file) {
   } catch {
     return null;
   }
+}
+
+export function findEnabledProjectRoot(startDir) {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    const activationPath = path.join(current, '.ralph', 'project.json');
+    if (existsSync(activationPath)) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+export async function readProjectActivation(projectRoot) {
+  const activation = await readJson(path.join(projectRoot, '.ralph', 'project.json'));
+  return activation && activation.enabled === true ? activation : null;
 }
 
 async function readCurrentTask(projectRoot, taskId) {

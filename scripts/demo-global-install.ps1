@@ -21,6 +21,14 @@ Write-Host ""
 Write-Host "== Plugin status =="
 ralph plugin status
 Write-Host ""
+Write-Host "== Enable project routing =="
+Push-Location $demoRoot
+try {
+  orc enable
+} finally {
+  Pop-Location
+}
+Write-Host ""
 Write-Host "== First relevant prompt =="
 $env:RALPH_PROJECT_ROOT = $demoRoot
 @"

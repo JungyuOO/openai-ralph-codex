@@ -162,9 +162,17 @@ npm install -g @openai/codex openai-ralph-codex
 Global install is designed to prepare Ralph for normal Codex usage by:
 
 - installing the `ralph` CLI
+- installing the `orc` CLI alias
 - copying the plugin into `~/plugins/openai-ralph-codex`
 - updating `~/.agents/plugins/marketplace.json`
 - merging Ralph-managed entries into `~/.codex/hooks.json`
+
+After global install, opt each project in explicitly:
+
+```bash
+cd your-project
+orc enable
+```
 
 If your environment blocks postinstall:
 
